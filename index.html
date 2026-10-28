@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Scanner Cepat</title>
-    <!-- Memuat Library Core Pendukung -->
+    <title>Scanner Barcode iPhone</title>
+    <!-- Memuat pustaka scanner resmi -->
     <script src="https://unpkg.com"></script>
     
     <style>
@@ -28,30 +28,15 @@
         }
         h3 { margin-top: 0; text-align: center; color: #212529; font-size: 16px;}
         
-        .video-box {
+        /* Box Kamera */
+        #scanner-box {
             width: 100%;
-            position: relative;
-            background: #000;
             border-radius: 8px;
             overflow: hidden;
-            aspect-ratio: 4 / 3;
+            background: #000;
             margin-bottom: 15px;
-        }
-        #webcam {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        #hidden-canvas { display: none; }
-
-        .laser {
-            position: absolute;
-            top: 50%; left: 5%;
-            width: 90%; height: 2px;
-            background-color: #ff3b30;
-            box-shadow: 0 0 6px #ff3b30;
-            transform: translateY(-50%);
-            z-index: 999;
+            aspect-ratio: 4 / 3;
+            border: 2px solid #ddd;
         }
 
         .input-box { margin-bottom: 10px; }
@@ -74,20 +59,18 @@
             border-top: 1px solid #dee2e6; padding-top: 8px; font-size: 13px;
         }
         .log-item { padding: 4px 0; border-bottom: 1px dashed #f1f3f5; color: #666;}
+        
+        /* Bersihkan tombol internal bawaan pustaka agar UI rapi */
+        #scanner-box button, #scanner-box span { display: none !important; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h3>Barcode Scanner Instan</h3>
+    <h3>Barcode Scanner Multi-Parse</h3>
     
-    <!-- Struktur Kamera Asli dari Versi Sebelumnya -->
-    <div class="video-box">
-        <video id="webcam" autoplay playsinline muted></video>
-        <div class="laser"></div>
-    </div>
-
-    <canvas id="hidden-canvas"></canvas>
+    <!-- Wadah Kamera Belakang HP -->
+    <div id="scanner-box"></div>
 
     <div class="input-box">
         <label>Nama Barang</label>
@@ -95,7 +78,7 @@
     </div>
     <div class="input-box">
         <label>Serial Number (S/N)</label>
-        <input type="text" id="sn" placeholder="Dekatkan kamera ke Barcode">
+        <input type="text" id="sn" placeholder="Arahkan ke barcode garis">
     </div>
     <div class="input-box">
         <label>IMEI / MEID</label>
@@ -114,72 +97,66 @@
 </div>
 
 <script>
-    const video = document.getElementById('webcam');
-    const canvasElement = document.getElementById('hidden-canvas');
-    const canvas = canvasElement.getContext('2d', { alpha: false });
     let dbData = [];
-    
-    // Inisialisasi engine decoder bawaan html5QrCode untuk membaca barcode 1D (garis)
-    const barcodeDecoder = new Html5QrcodeSupportedFormats([
+    let lastScanned = "";
+    let debounceTimer;
+
+    // 1. DAFTARKAN FORMAT BARCODE SECARA JELAS SEJAK AWAL
+    // Mengaktifkan format pendeteksian barcode garis panjang (Code 128 / Code 39)
+    const formatsToSupport = [
         Html5QrcodeSupportedFormats.CODE_128,
-        Html5QrcodeSupportedFormats.CODE_39
-    ]);
+        Html5QrcodeSupportedFormats.CODE_39,
+        Html5QrcodeSupportedFormats.EAN_13
+    ];
 
-    // Menggunakan pemanggilan kamera persis dari versi sebelumnya yang menyala
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
-    .then(function(stream) {
-        video.srcObject = stream;
-        video.play().then(() => { requestAnimationFrame(prosesFrame); });
-    })
-    .catch(err => alert("Kamera Error: Pastikan link HTTPS dan beri izin kamera."));
+    // Buat objek scanner
+    const html5QrCode = new Html5Qrcode("scanner-box", { 
+        formatsToSupport: formatsToSupport 
+    });
 
-    function prosesFrame() {
-        if (video.readyState === video.HAVE_ENOUGH_DATA) {
-            canvasElement.height = video.videoHeight;
-            canvasElement.width = video.videoWidth;
-            canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
-            
-            // Proses pembacaan barcode 1D (Garis) menggunakan HTML5-QRCode Engine
-            const html5QrCodeEngine = new Html5Qrcode("hidden-canvas");
-            
-            // Mengambil data gambar dari video streaming untuk di-scan garisnya
-            canvasElement.toBlob((blob) => {
-                if(!blob) return;
-                const imageFile = new File([blob], "frame.jpg", { type: "image/jpeg" });
-                
-                html5QrCodeEngine.scanFile(imageFile, false)
-                    .then(decodedText => {
-                        parseDataBarcode(decodedText);
-                    })
-                    .catch(err => {
-                        // Abaikan error pencarian jika frame belum fokus ke garis barcode
-                    });
-            }, 'image/jpeg');
-        }
-        setTimeout(() => { requestAnimationFrame(prosesFrame); }, 150); // Jeda aman 150ms agar HP tidak panas
-    }
+    // 2. JALANKAN KAMERA DENGAN METODE YANG SUDAH TERBUKTI MENYALA
+    html5QrCode.start(
+        { facingMode: "environment" }, // Paksa Kamera Belakang
+        {
+            fps: 15,
+            qrbox: function(viewfinderWidth, viewfinderHeight) {
+                // Area bidik dibuat memanjang lebar (horizontal) agar pas dengan ukuran barcode box iPhone
+                return { width: Math.floor(viewfinderWidth * 0.85), height: Math.floor(viewfinderHeight * 0.35) };
+            },
+            aspectRatio: 1.333333
+        },
+        onScanSuccess
+    ).catch(err => {
+        alert("Kamera mogok. Mohon segarkan halaman dalam Mode Incognito. Detail: " + err);
+    });
 
-    // LOGIKA PEMISAH DATA OTOMATIS
-    function parseDataBarcode(text) {
-        let cleanText = text.trim();
+    // 3. FUNGSI PARSING BARCODE SAAT BERHASIL TERDITEKSI
+    function onScanSuccess(decodedText) {
+        let cleanText = decodedText.trim();
         
-        // Deteksi IMEI (15 digit angka)
+        // Mencegah pemindaian ganda beruntun untuk kode yang sama
+        if (cleanText === lastScanned) return;
+        lastScanned = cleanText;
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => { lastScanned = ""; }, 1500);
+
+        // Deteksi IMEI (15 digit angka murni)
         if (/^\d{15}$/.test(cleanText)) {
             document.getElementById('imei').value = cleanText;
-            vibrateDevice();
+            vibrateHP();
         } 
-        // Deteksi Serial Number iPhone (9-13 karakter alfanumerik)
+        // Deteksi Serial Number iPhone (9-13 alfanumerik)
         else if (cleanText.length >= 9 && cleanText.length <= 13 && !/\s/.test(cleanText)) {
             if (cleanText.toUpperCase().startsWith("S")) {
                 cleanText = cleanText.substring(1);
             }
             document.getElementById('sn').value = cleanText;
-            vibrateDevice();
+            vibrateHP();
         }
     }
 
-    function vibrateDevice() {
-        if (navigator.vibrate) navigator.vibrate(40);
+    function vibrateHP() {
+        if (navigator.vibrate) navigator.vibrate(50);
     }
 
     function simpanData() {
@@ -187,7 +164,7 @@
         const sn = document.getElementById('sn').value;
         const imei = document.getElementById('imei').value;
 
-        if (!sn && !imei) return alert("Silakan scan barcode terlebih dahulu!");
+        if (!sn && !imei) return alert("Silakan scan barcode dahulu!");
 
         dbData.push({ "Nama Barang": nama, "Serial Number": sn, "IMEI": imei });
 
@@ -199,9 +176,9 @@
         document.getElementById('imei').value = '';
     }
 
-    // LAZY LOADING EXCEL (Tetap dipertahankan agar web tidak lemot saat dibuka)
+    // Lazy Loading Excel agar muat halaman tetap kilat
     function unduhExcel() {
-        if (dbData.length === 0) return alert("Data antrean masih kosong!");
+        if (dbData.length === 0) return alert("Data antrean kosong!");
         
         const btn = document.getElementById('btnExcel');
         btn.innerText = "Memproses...";
@@ -220,7 +197,7 @@
     function prosesEkspor() {
         const ws = XLSX.utils.json_to_sheet(dbData);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Data");
+        XLSX.utils.book_append_sheet(wb, ws, "Data Scan");
         XLSX.writeFile(wb, "Data_Scan_iPhone.xlsx");
         
         const btn = document.getElementById('btnExcel');
