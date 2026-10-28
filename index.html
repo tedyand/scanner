@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Scanner Cepat</title>
-    <!-- HANYA memuat library scanner super kecil (hanya ~40KB) di awal -->
-    <script src="https://jsdelivr.net"></script>
+    <!-- Memuat Library Core Pendukung -->
+    <script src="https://unpkg.com"></script>
     
     <style>
         body {
@@ -51,6 +51,7 @@
             background-color: #ff3b30;
             box-shadow: 0 0 6px #ff3b30;
             transform: translateY(-50%);
+            z-index: 999;
         }
 
         .input-box { margin-bottom: 10px; }
@@ -80,6 +81,7 @@
 <div class="card">
     <h3>Barcode Scanner Instan</h3>
     
+    <!-- Struktur Kamera Asli dari Versi Sebelumnya -->
     <div class="video-box">
         <video id="webcam" autoplay playsinline muted></video>
         <div class="laser"></div>
@@ -116,8 +118,14 @@
     const canvasElement = document.getElementById('hidden-canvas');
     const canvas = canvasElement.getContext('2d', { alpha: false });
     let dbData = [];
+    
+    // Inisialisasi engine decoder bawaan html5QrCode untuk membaca barcode 1D (garis)
+    const barcodeDecoder = new Html5QrcodeSupportedFormats([
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.CODE_39
+    ]);
 
-    // Aktifkan Kamera Belakang
+    // Menggunakan pemanggilan kamera persis dari versi sebelumnya yang menyala
     navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
     .then(function(stream) {
         video.srcObject = stream;
@@ -131,18 +139,27 @@
             canvasElement.width = video.videoWidth;
             canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
             
-            const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
-            const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                inversionAttempts: "dontInvert",
-            });
+            // Proses pembacaan barcode 1D (Garis) menggunakan HTML5-QRCode Engine
+            const html5QrCodeEngine = new Html5Qrcode("hidden-canvas");
             
-            if (code && code.data) {
-                parseDataBarcode(code.data);
-            }
+            // Mengambil data gambar dari video streaming untuk di-scan garisnya
+            canvasElement.toBlob((blob) => {
+                if(!blob) return;
+                const imageFile = new File([blob], "frame.jpg", { type: "image/jpeg" });
+                
+                html5QrCodeEngine.scanFile(imageFile, false)
+                    .then(decodedText => {
+                        parseDataBarcode(decodedText);
+                    })
+                    .catch(err => {
+                        // Abaikan error pencarian jika frame belum fokus ke garis barcode
+                    });
+            }, 'image/jpeg');
         }
-        setTimeout(() => { requestAnimationFrame(prosesFrame); }, 100); // Diberi jeda 100ms agar prosesor HP sangat santai
+        setTimeout(() => { requestAnimationFrame(prosesFrame); }, 150); // Jeda aman 150ms agar HP tidak panas
     }
 
+    // LOGIKA PEMISAH DATA OTOMATIS
     function parseDataBarcode(text) {
         let cleanText = text.trim();
         
@@ -151,7 +168,7 @@
             document.getElementById('imei').value = cleanText;
             vibrateDevice();
         } 
-        // Deteksi Serial Number iPhone (10-12 karakter alfanumerik)
+        // Deteksi Serial Number iPhone (9-13 karakter alfanumerik)
         else if (cleanText.length >= 9 && cleanText.length <= 13 && !/\s/.test(cleanText)) {
             if (cleanText.toUpperCase().startsWith("S")) {
                 cleanText = cleanText.substring(1);
@@ -182,7 +199,7 @@
         document.getElementById('imei').value = '';
     }
 
-    // STRATEGI LAZY LOADING: Library Excel baru didownload saat tombol di klik
+    // LAZY LOADING EXCEL (Tetap dipertahankan agar web tidak lemot saat dibuka)
     function unduhExcel() {
         if (dbData.length === 0) return alert("Data antrean masih kosong!");
         
@@ -190,16 +207,12 @@
         btn.innerText = "Memproses...";
         btn.disabled = true;
 
-        // Cek jika library XLSX sudah pernah dimuat sebelumnya
         if (window.XLSX) {
             prosesEkspor();
         } else {
-            // Memuat skrip Excel secara dinamis dan instan hanya saat dibutuhkan
             const script = document.createElement('script');
             script.src = "https://jsdelivr.net";
-            script.onload = () => {
-                prosesEkspor();
-            };
+            script.onload = () => { prosesEkspor(); };
             document.head.appendChild(script);
         }
     }
