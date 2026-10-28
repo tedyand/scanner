@@ -3,18 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scanner Barang Mandiri Offline</title>
-    <!-- Memuat Library untuk Export Excel -->
+    <title>Scanner Barang Anti Gagal</title>
+    <!-- Library QR/Barcode Decoder Online Lokal -->
+    <script src="https://jsdelivr.net"></script>
+    <!-- Library Export Excel -->
     <script src="https://cloudflare.com"></script>
     
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
         body { padding: 15px; background-color: #f4f6f9; color: #333; }
         h2 { text-align: center; margin-bottom: 15px; color: #2c3e50; }
-        .container { max-width: 500px; margin: 0 auto; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        #reader { width: 100%; min-height: 250px; border-radius: 8px; overflow: hidden; border: 2px solid #3498db !important; background: #000; position: relative; }
-        #reader button { padding: 12px 20px; background-color: #3498db; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin: 10px auto; display: block; font-size: 15px; }
-        #reader select { padding: 10px; width: 100%; margin-top: 5px; border-radius: 4px; border: 1px solid #ccc; font-size: 15px; }
+        .container { max-width: 500px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        
+        /* Tombol Pemicu Kamera HP */
+        .btn-camera {
+            width: 100%;
+            padding: 20px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            text-align: center;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 10px rgba(52, 152, 219, 0.3);
+        }
+        
         .form-group { margin-top: 15px; }
         label { font-weight: bold; display: block; margin-bottom: 5px; }
         input[type="text"], input[type="number"] { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
@@ -25,20 +41,27 @@
         th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
         th { background-color: #34495e; color: white; }
         tr:nth-child(even) { background-color: #f9f9f9; }
+        #preview-img { width: 100%; max-height: 150px; object-fit: contain; margin-top: 10px; display: none; border-radius: 4px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Pemindai Barang Mandiri</h2>
+    <h2>Pemindai Barang HP</h2>
     
-    <!-- Tempat Kamera Muncul -->
-    <div id="reader"></div>
+    <!-- Input Rahasia untuk memicu Kamera Asli HP -->
+    <input type="file" accept="image/*" capture="environment" id="camera-file" style="display: none;" onchange="prosesFoto(this)">
+    
+    <!-- Tombol Besar yang Ditekan User -->
+    <button class="btn-camera" onclick="bukaKameraHP()">📷 BUKA KAMERA / FOTO BARCODE</button>
+    
+    <img id="preview-img" alt="Preview Foto">
+    <div id="status-scan" style="text-align:center; font-size:12px; font-weight:bold; margin-top:5px;"></div>
 
     <!-- Form Input Data Barang -->
     <div class="form-group">
         <label for="barcode-res">Kode Barang / Barcode:</label>
-        <input type="text" id="barcode-res" placeholder="Scan atau ketik manual...">
+        <input type="text" id="barcode-res" placeholder="Hasil scan otomatis atau ketik manual...">
     </div>
     
     <div class="form-group">
@@ -71,42 +94,61 @@
     </div>
 </div>
 
-<!-- MINI LIBRARY SCANNER INLINE UNTUK MENJAMIN KEBERHASILAN RUNNING -->
-<script>
-!function(e,t){"object"==typeof exports&&"undefined"!=typeof module?t(exports):"function"==typeof define&&define.amd?define(["exports"],t):t((e="undefined"!=typeof globalThis?globalThis:e||self).Html5QrcodeLibrary={})}(this,(function(e){"use strict";/* Pustaka Mini Mandiri */}));
-</script>
+<!-- Canvas Tersembunyi untuk membaca piksel gambar -->
+<canvas id="hidden-canvas" style="display:none;"></canvas>
 
-<!-- SCRIPT UTAMA SISTEM BROWSER -->
-<script src="https://unpkg.com"></script> 
 <script>
     let dataBarang = [];
-    let lastResult = null;
-    let lastTime = 0;
 
-    function onScanSuccess(decodedText, decodedResult) {
-        let now = Date.now();
-        if (decodedText === lastResult && (now - lastTime < 2000)) return;
-        lastResult = decodedText;
-        lastTime = now;
-
-        document.getElementById('barcode-res').value = decodedText;
-        document.getElementById('nama-barang').focus();
-        if (navigator.vibrate) navigator.vibrate(100);
+    function bukaKameraHP() {
+        // Memicu input file bawaan Android/iOS
+        document.getElementById('camera-file').click();
     }
 
-    // Inisialisasi scanner bawaan yang aman
-    setTimeout(() => {
-        try {
-            let html5QrcodeScanner = new Html5QrcodeScanner(
-                "reader", 
-                { fps: 10, qrbox: { width: 260, height: 160 }, rememberLastUsedCamera: true },
-                false
-            );
-            html5QrcodeScanner.render(onScanSuccess, (err) => {});
-        } catch (e) {
-            document.getElementById('reader').innerHTML = "<div style='padding:20px; color:white; text-align:center;'>Menunggu Aktivasi Izin Kamera Browser Anda... Silakan klik logo gembok di URL bar atas HP/Laptop Anda lalu pilih 'Allow Camera'.</div>";
-        }
-    }, 500);
+    function prosesFoto(input) {
+        const file = input.files[0];
+        if (!file) return;
+
+        const status = document.getElementById('status-scan');
+        const preview = document.getElementById('preview-img');
+        status.innerText = "Sedang membaca barcode dari foto...";
+        status.style.color = "#3498db";
+
+        // Tampilkan gambar pratinjau
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            preview.src = e.target.result;
+            preview.style.display = "block";
+
+            // Proses dekoding menggunakan Canvas
+            const img = new Image();
+            img.onload = function() {
+                const canvas = document.getElementById('hidden-canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                
+                // Scan menggunakan jsQR (untuk QR Code)
+                const code = jsQR(imageData.data, imageData.width, imageData.height);
+                
+                if (code) {
+                    document.getElementById('barcode-res').value = code.data;
+                    document.getElementById('nama-barang').focus();
+                    status.innerText = "Scan Sukses!";
+                    status.style.color = "#2ecc71";
+                    if (navigator.vibrate) navigator.vibrate(100);
+                } else {
+                    status.innerText = "QR/Barcode tidak terdeteksi. Silakan ketik manual atau foto ulang lebih dekat & jelas.";
+                    status.style.color = "#e74c3c";
+                }
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
 
     function tambahBarang() {
         const kode = document.getElementById('barcode-res').value.trim();
@@ -127,7 +169,8 @@
         document.getElementById('barcode-res').value = '';
         document.getElementById('nama-barang').value = '';
         document.getElementById('jumlah-barang').value = '1';
-        lastResult = null;
+        document.getElementById('preview-img').style.display = "none";
+        document.getElementById('status-scan').innerText = "";
     }
 
     function unduhExcel() {
