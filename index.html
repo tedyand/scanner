@@ -3,34 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scanner Barang Anti Gagal</title>
-    <!-- Library QR/Barcode Decoder Online Lokal -->
-    <script src="https://jsdelivr.net"></script>
-    <!-- Library Export Excel -->
-    <script src="https://cloudflare.com"></script>
-    
+    <title>Input Barang Ke Excel (Murni Offline)</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
         body { padding: 15px; background-color: #f4f6f9; color: #333; }
         h2 { text-align: center; margin-bottom: 15px; color: #2c3e50; }
         .container { max-width: 500px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        
-        /* Tombol Pemicu Kamera HP */
-        .btn-camera {
-            width: 100%;
-            padding: 20px;
-            background-color: #3498db;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            text-align: center;
-            margin-bottom: 15px;
-            box-shadow: 0 4px 10px rgba(52, 152, 219, 0.3);
-        }
-        
         .form-group { margin-top: 15px; }
         label { font-weight: bold; display: block; margin-bottom: 5px; }
         input[type="text"], input[type="number"] { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
@@ -41,27 +19,18 @@
         th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
         th { background-color: #34495e; color: white; }
         tr:nth-child(even) { background-color: #f9f9f9; }
-        #preview-img { width: 100%; max-height: 150px; object-fit: contain; margin-top: 10px; display: none; border-radius: 4px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Pemindai Barang HP</h2>
-    
-    <!-- Input Rahasia untuk memicu Kamera Asli HP -->
-    <input type="file" accept="image/*" capture="environment" id="camera-file" style="display: none;" onchange="prosesFoto(this)">
-    
-    <!-- Tombol Besar yang Ditekan User -->
-    <button class="btn-camera" onclick="bukaKameraHP()">📷 BUKA KAMERA / FOTO BARCODE</button>
-    
-    <img id="preview-img" alt="Preview Foto">
-    <div id="status-scan" style="text-align:center; font-size:12px; font-weight:bold; margin-top:5px;"></div>
+    <h2>Input & Scan Barang</h2>
 
     <!-- Form Input Data Barang -->
     <div class="form-group">
         <label for="barcode-res">Kode Barang / Barcode:</label>
-        <input type="text" id="barcode-res" placeholder="Hasil scan otomatis atau ketik manual...">
+        <!-- Di HP, saat kolom ini diketuk, Anda bisa memanfaatkan tombol scanner bawaan keyboard HP Anda (jika ada) -->
+        <input type="text" id="barcode-res" placeholder="Ketik angka barcode di sini...">
     </div>
     
     <div class="form-group">
@@ -75,11 +44,11 @@
     </div>
 
     <button class="btn" onclick="tambahBarang()">Simpan Data</button>
-    <button class="btn btn-excel" onclick="unduhExcel()">Download Excel (.xlsx)</button>
+    <button class="btn btn-excel" onclick="unduhExcel()">Download Data ke Excel</button>
 
     <!-- Tabel Riwayat Scan -->
     <div class="table-container">
-        <h3>Daftar Barang Scan</h3>
+        <h3>Daftar Barang</h3>
         <table id="tabel-barang">
             <thead>
                 <tr>
@@ -94,62 +63,11 @@
     </div>
 </div>
 
-<!-- Canvas Tersembunyi untuk membaca piksel gambar -->
-<canvas id="hidden-canvas" style="display:none;"></canvas>
-
 <script>
+    // Array penampung data
     let dataBarang = [];
 
-    function bukaKameraHP() {
-        // Memicu input file bawaan Android/iOS
-        document.getElementById('camera-file').click();
-    }
-
-    function prosesFoto(input) {
-        const file = input.files[0];
-        if (!file) return;
-
-        const status = document.getElementById('status-scan');
-        const preview = document.getElementById('preview-img');
-        status.innerText = "Sedang membaca barcode dari foto...";
-        status.style.color = "#3498db";
-
-        // Tampilkan gambar pratinjau
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            preview.src = e.target.result;
-            preview.style.display = "block";
-
-            // Proses dekoding menggunakan Canvas
-            const img = new Image();
-            img.onload = function() {
-                const canvas = document.getElementById('hidden-canvas');
-                const ctx = canvas.getContext('2d');
-                canvas.width = img.width;
-                canvas.height = img.height;
-                ctx.drawImage(img, 0, 0);
-
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                
-                // Scan menggunakan jsQR (untuk QR Code)
-                const code = jsQR(imageData.data, imageData.width, imageData.height);
-                
-                if (code) {
-                    document.getElementById('barcode-res').value = code.data;
-                    document.getElementById('nama-barang').focus();
-                    status.innerText = "Scan Sukses!";
-                    status.style.color = "#2ecc71";
-                    if (navigator.vibrate) navigator.vibrate(100);
-                } else {
-                    status.innerText = "QR/Barcode tidak terdeteksi. Silakan ketik manual atau foto ulang lebih dekat & jelas.";
-                    status.style.color = "#e74c3c";
-                }
-            };
-            img.src = e.target.result;
-        };
-        reader.readAsDataURL(file);
-    }
-
+    // Fungsi Tambah Data ke Tabel
     function tambahBarang() {
         const kode = document.getElementById('barcode-res').value.trim();
         const nama = document.getElementById('nama-barang').value.trim();
@@ -161,24 +79,47 @@
             return;
         }
 
-        dataBarang.push({ Waktu: waktu, Kode: kode, Nama: nama, Jumlah: parseInt(qty) });
+        // Simpan ke memory
+        dataBarang.push({ waktu, kode, nama, qty });
 
+        // Update Tabel HTML
         const tbody = document.querySelector('#tabel-barang tbody');
-        tbody.insertAdjacentHTML('beforeend', `<tr><td>${waktu}</td><td>${kode}</td><td>${nama}</td><td>${qty}</td></tr>`);
+        const row = `<tr><td>${waktu}</td><td>${kode}</td><td>${nama}</td><td>${qty}</td></tr>`;
+        tbody.insertAdjacentHTML('beforeend', row);
 
+        // Reset Input
         document.getElementById('barcode-res').value = '';
         document.getElementById('nama-barang').value = '';
         document.getElementById('jumlah-barang').value = '1';
-        document.getElementById('preview-img').style.display = "none";
-        document.getElementById('status-scan').innerText = "";
+        
+        // Kembalikan fokus ke kolom barcode biar siap input lagi
+        document.getElementById('barcode-res').focus();
     }
 
+    // Fungsi Export Excel (Format CSV Murni Tanpa Library)
     function unduhExcel() {
-        if (dataBarang.length === 0) { alert('Belum ada data barang!'); return; }
-        const worksheet = XLSX.utils.json_to_sheet(dataBarang);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Data Barang");
-        XLSX.writeFile(workbook, "Data_Scan_Barang.xlsx");
+        if (dataBarang.length === 0) {
+            alert('Belum ada data barang yang dimasukkan!');
+            return;
+        }
+
+        // Membuat struktur text CSV (dipisahkan oleh koma)
+        let csvContent = "Waktu,Kode Barang,Nama Barang,Jumlah (Qty)\n";
+        
+        dataBarang.forEach(item => {
+            csvContent += `"${item.waktu}","${item.kode}","${item.nama}","${item.qty}"\n`;
+        });
+
+        // Proses download file otomatis di HP / Laptop
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", "Data_Barang_Scan.csv");
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
 </script>
 
