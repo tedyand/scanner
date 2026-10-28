@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Scanner Barcode iPhone</title>
-    <!-- Memuat Pustaka Scanner Versi Stabil Resmi -->
-    <script src="https://unpkg.com" type="text/javascript"></script>
+    <title>Scanner Cepat</title>
+    <!-- Memuat library inti pendukung via CDN ringan -->
+    <script src="https://jsdelivr.net"></script>
     
     <style>
         body {
@@ -28,28 +28,31 @@
         }
         h3 { margin-top: 0; text-align: center; color: #212529; font-size: 16px;}
         
-        .btn-kamera-wajib {
+        /* Area Kotak Kamera Native */
+        .video-box {
             width: 100%;
-            background-color: #ff9500;
-            color: white;
-            padding: 14px;
-            font-size: 15px;
-            font-weight: bold;
-            border: none;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            cursor: pointer;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-
-        #scanner-box {
-            width: 100%;
+            position: relative;
             background: #000;
             border-radius: 8px;
             overflow: hidden;
-            border: 2px solid #ddd;
-            margin-bottom: 15px;
             aspect-ratio: 4 / 3;
+            margin-bottom: 15px;
+        }
+        #webcam {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        #hidden-canvas { display: none; }
+
+        /* Garis Bidik Merah */
+        .laser {
+            position: absolute;
+            top: 50%; left: 5%;
+            width: 90%; height: 2px;
+            background-color: #ff3b30;
+            box-shadow: 0 0 6px #ff3b30;
+            transform: translateY(-50%);
         }
 
         .input-box { margin-bottom: 10px; }
@@ -60,7 +63,7 @@
         }
         
         .row-btn { display: flex; gap: 8px; margin-top: 15px; }
-        button.action-btn {
+        button {
             flex: 1; padding: 12px; font-size: 14px; font-weight: bold;
             border: none; border-radius: 6px; cursor: pointer; color: white;
         }
@@ -72,21 +75,20 @@
             border-top: 1px solid #dee2e6; padding-top: 8px; font-size: 13px;
         }
         .log-item { padding: 4px 0; border-bottom: 1px dashed #f1f3f5; color: #666;}
-        
-        /* Menyembunyikan log eror bawaan agar tidak merusak tata letak */
-        #scanner-box button, #scanner-box span { display: none !important; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h3>Barcode Scanner Fail-Safe V3</h3>
+    <h3>Barcode Scanner Instan</h3>
     
-    <!-- Tombol aktivasi manual kamera belakang -->
-    <button class="btn-kamera-wajib" onclick="hidupkanKameraManual()">🔴 AKTIFKAN KAMERA BELAKANG</button>
-    
-    <!-- Kotak Lensa Kamera -->
-    <div id="scanner-box"></div>
+    <!-- Tampilan Utama Kamera Belakang HP -->
+    <div class="video-box">
+        <video id="webcam" autoplay playsinline muted></video>
+        <div class="laser"></div>
+    </div>
+
+    <canvas id="hidden-canvas"></canvas>
 
     <div class="input-box">
         <label>Nama Barang</label>
@@ -94,16 +96,16 @@
     </div>
     <div class="input-box">
         <label>Serial Number (S/N)</label>
-        <input type="text" id="sn" placeholder="Arahkan ke barcode garis">
+        <input type="text" id="sn" placeholder="Dekatkan kamera ke Barcode">
     </div>
     <div class="input-box">
         <label>IMEI / MEID</label>
-        <input type="text" id="imei" placeholder="Otomatis memisahkan kode">
+        <input type="text" id="imei" placeholder="Otomatis terpisah">
     </div>
 
     <div class="row-btn">
-        <button class="action-btn btn-add" onclick="simpanData()">Simpan Data</button>
-        <button class="action-btn btn-xl" id="btnExcel" onclick="unduhExcel()">Unduh Excel</button>
+        <button class="btn-add" onclick="simpanData()">Simpan Data</button>
+        <button class="btn-xl" id="btnExcel" onclick="unduhExcel()">Unduh Excel</button>
     </div>
 
     <div class="log-box">
@@ -113,75 +115,58 @@
 </div>
 
 <script>
+    const video = document.getElementById('webcam');
+    const canvasElement = document.getElementById('hidden-canvas');
+    const canvas = canvasElement.getContext('2d', { alpha: false });
     let dbData = [];
-    let lastScanned = "";
-    let debounceTimer;
-    let html5QrCode;
 
-    try {
-        html5QrCode = new Html5Qrcode("scanner-box", { 
-            formatsToSupport: [
-                Html5QrcodeSupportedFormats.CODE_128, 
-                Html5QrcodeSupportedFormats.CODE_39,
-                Html5QrcodeSupportedFormats.EAN_13
-            ],
-            // SOLUSI UTAMA: Matikan detektor native bawaan HP yang memicu blank hitam
-            useBarCodeDetectorIfSupported: false 
-        });
-    } catch(e) {
-        console.log("Scanner siap diinisialisasi.");
+    // Mengaktifkan Kamera Belakang dengan Struktur yang Sudah Berhasil Sebelumnya
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
+    .then(function(stream) {
+        video.srcObject = stream;
+        video.play().then(() => { requestAnimationFrame(prosesFrame); });
+    })
+    .catch(err => alert("Kamera Error: Pastikan menggunakan link HTTPS dan beri izin akses kamera."));
+
+    function prosesFrame() {
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+            canvasElement.height = video.videoHeight;
+            canvasElement.width = video.videoWidth;
+            canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+            
+            const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
+            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                inversionAttempts: "dontInvert",
+            });
+            
+            if (code && code.data) {
+                parseDataBarcode(code.data);
+            }
+        }
+        setTimeout(() => { requestAnimationFrame(prosesFrame); }, 100); // Ringan untuk RAM & tidak membuat HP panas
     }
 
-    function hidupkanKameraManual() {
-        html5QrCode.stop().catch(() => {});
-
-        html5QrCode.start(
-            { facingMode: "environment" }, // Kamera belakang wajib aktif
-            {
-                fps: 15,
-                qrbox: function(viewfinderWidth, viewfinderHeight) {
-                    // Kotak bidik horizontal panjang agar sesuai bentuk barcode dus iPhone
-                    return { width: Math.floor(viewfinderWidth * 0.85), height: Math.floor(viewfinderHeight * 0.4) };
-                },
-                aspectRatio: 1.333333
-            },
-            onScanSuccess
-        )
-        .then(() => {
-            document.querySelector('.btn-kamera-wajib').innerText = "🔄 KAMERA MENYALA (Klik untuk Reset)";
-            document.querySelector('.btn-kamera-wajib').style.backgroundColor = "#34c759";
-        })
-        .catch(err => {
-            alert("Kamera gagal dimuat. Pastikan Anda membuka link HTTPS di browser HP. Error: " + err);
-        });
-    }
-
-    // FUNGSI AUTO-PARSING DATA BARCODE IPHONE
-    function onScanSuccess(decodedText) {
-        let cleanText = decodedText.trim();
+    // MEMISAHKAN DATA SECARA OTOMATIS
+    function parseDataBarcode(text) {
+        let cleanText = text.trim();
         
-        if (cleanText === lastScanned) return;
-        lastScanned = cleanText;
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => { lastScanned = ""; }, 1500);
-
-        // 1. Ciri IMEI: Berisi 15 digit angka bersih
+        // Deteksi IMEI (15 digit angka murni)
         if (/^\d{15}$/.test(cleanText)) {
             document.getElementById('imei').value = cleanText;
-            vibrateHP();
+            vibrateDevice();
         } 
-        // 2. Ciri Serial Number iPhone: Panjang 9-13 alfanumerik (tanpa spasi)
+        // Deteksi Serial Number iPhone (9-13 alfanumerik)
         else if (cleanText.length >= 9 && cleanText.length <= 13 && !/\s/.test(cleanText)) {
             if (cleanText.toUpperCase().startsWith("S")) {
                 cleanText = cleanText.substring(1);
             }
             document.getElementById('sn').value = cleanText;
-            vibrateHP();
+            vibrateDevice();
         }
     }
 
-    function vibrateHP() {
-        if (navigator.vibrate) navigator.vibrate(50);
+    function vibrateDevice() {
+        if (navigator.vibrate) navigator.vibrate(40);
     }
 
     function simpanData() {
@@ -189,7 +174,7 @@
         const sn = document.getElementById('sn').value;
         const imei = document.getElementById('imei').value;
 
-        if (!sn && !imei) return alert("Silakan scan barcode dahulu!");
+        if (!sn && !imei) return alert("Silakan scan barcode terlebih dahulu!");
 
         dbData.push({ "Nama Barang": nama, "Serial Number": sn, "IMEI": imei });
 
@@ -201,6 +186,7 @@
         document.getElementById('imei').value = '';
     }
 
+    // LAZY LOADING EXCEL: Library baru diunduh ketika tombol ditekan agar hemat kuota & halaman cepat dibuka
     function unduhExcel() {
         if (dbData.length === 0) return alert("Data antrean masih kosong!");
         
@@ -221,7 +207,7 @@
     function prosesEkspor() {
         const ws = XLSX.utils.json_to_sheet(dbData);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Data Scan");
+        XLSX.utils.book_append_sheet(wb, ws, "Data");
         XLSX.writeFile(wb, "Data_Scan_iPhone.xlsx");
         
         const btn = document.getElementById('btnExcel');
