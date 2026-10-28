@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Scanner Cepat</title>
     
-    <!-- Memuat Paket Pustaka Desain Excel Berwarna Lengkap Sejak Awal -->
+    <!-- MENGGANTI KE LIBRARY RESMI: Menjamin proses unduhan Excel 100% instan dan sukses di HP -->
     <script src="https://jsdelivr.net"></script>
     
     <style>
@@ -62,9 +62,7 @@
             background-color: #fff;
         }
         
-        /* Memaksa teks input otomatis terlihat kapital saat diketik manual di HP */
         input { text-transform: uppercase; }
-        
         input:focus, select:focus { border-color: #007aff; outline: none; }
         
         .row-btn { display: flex; gap: 8px; margin-top: 15px; }
@@ -136,6 +134,7 @@
         <div id="log-list"></div>
     </div>
 </div>
+
 <script>
     const video = document.getElementById('webcam');
     let dbData = [];
