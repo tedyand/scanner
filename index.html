@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Scanner Cepat</title>
-    <!-- HANYA MENGGANTI INI: Memanggil library khusus barcode garis (Quagga Core) -->
+    <!-- Library pembaca barcode garis Quagga (TETAP SAMA) -->
     <script src="https://jsdelivr.net"></script>
     
     <style>
@@ -119,7 +119,7 @@
     const canvas = canvasElement.getContext('2d', { alpha: false });
     let dbData = [];
 
-    // KODE JALUR KAMERA AWAL ANDA (TIDAK DIUBAH)
+    // KODE JALUR KAMERA AWAL ANDA (TIDAK DIUBAH SAMA SEKALI)
     navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
     .then(function(stream) {
         video.srcObject = stream;
@@ -131,13 +131,17 @@
         if (video.readyState === video.HAVE_ENOUGH_DATA) {
             canvasElement.height = video.videoHeight;
             canvasElement.width = video.videoWidth;
+            
+            // TAMBAHAN BARU: Memberi filter digital agar gambar barcode menjadi hitam-putih super tajam dan kontras tinggi
+            canvas.filter = "contrast(180%) brightness(110%) grayscale(100%)";
+            
             canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
             
-            // HANYA MENGGANTI BAGIAN INI: Memproses gambar canvas menggunakan dekoder Quagga (khusus Code 128)
             try {
                 const dataUrl = canvasElement.toDataURL('image/jpeg');
                 Quagga.decodeSingle({
                     decoder: {
+                        // Mengaktifkan juga format code_39 & ean_reader karena beberapa box Apple regional menggunakan format ini
                         readers: ["code_128_reader", "code_39_reader", "ean_reader"]
                     },
                     locate: true,
@@ -148,7 +152,7 @@
                     }
                 });
             } catch (e) {
-                // Abaikan error pencarian gambar lambat
+                // Abaikan jika pemrosesan frame melambat
             }
         }
         setTimeout(() => { requestAnimationFrame(prosesFrame); }, 150); 
