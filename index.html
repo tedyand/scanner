@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Scanner Barcode iPhone</title>
-    <!-- Library Ekspor Excel & Pustaka Scanner Ringan terpisah -->
-    <script src="https://jsdelivr.net"></script>
+    <title>Scanner Cepat</title>
+    <!-- HANYA memuat library scanner super kecil (hanya ~40KB) di awal -->
     <script src="https://jsdelivr.net"></script>
     
     <style>
@@ -29,7 +28,6 @@
         }
         h3 { margin-top: 0; text-align: center; color: #212529; font-size: 16px;}
         
-        /* Wadah Pemutar Kamera Native */
         .video-box {
             width: 100%;
             position: relative;
@@ -39,13 +37,11 @@
             aspect-ratio: 4 / 3;
             margin-bottom: 15px;
         }
-        /* Elemen video native dipaksa tampil penuh */
         #webcam {
             width: 100%;
             height: 100%;
             object-fit: cover;
         }
-        /* Canvas pemroses gambar disembunyikan agar hemat memori */
         #hidden-canvas { display: none; }
 
         .laser {
@@ -82,9 +78,8 @@
 <body>
 
 <div class="card">
-    <h3>Barcode Scanner Native API</h3>
+    <h3>Barcode Scanner Instan</h3>
     
-    <!-- Box Tampilan Lensa HP -->
     <div class="video-box">
         <video id="webcam" autoplay playsinline muted></video>
         <div class="laser"></div>
@@ -102,12 +97,12 @@
     </div>
     <div class="input-box">
         <label>IMEI / MEID</label>
-        <input type="text" id="imei" placeholder="Otomatis terisi terpisah">
+        <input type="text" id="imei" placeholder="Otomatis terpisah">
     </div>
 
     <div class="row-btn">
         <button class="btn-add" onclick="simpanData()">Simpan Data</button>
-        <button class="btn-xl" onclick="unduhExcel()">Unduh Excel</button>
+        <button class="btn-xl" id="btnExcel" onclick="unduhExcel()">Unduh Excel</button>
     </div>
 
     <div class="log-box">
@@ -122,33 +117,13 @@
     const canvas = canvasElement.getContext('2d', { alpha: false });
     let dbData = [];
 
-    // Konfigurasi Paling Aman & Kompatibel untuk semua Kamera Belakang HP (Android/iOS)
-    const mediaConstraints = {
-        video: {
-            facingMode: { exact: "environment" } // Memaksa HP membuka sensor kamera belakang fisik
-        },
-        audio: false
-    };
-
-    // Mengaktifkan Aliran Kamera Utama Perangkat
-    navigator.mediaDevices.getUserMedia(mediaConstraints)
+    // Aktifkan Kamera Belakang
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
     .then(function(stream) {
         video.srcObject = stream;
-        // Pemicu rilis penguncian pemutar video pada browser Safari iOS
-        video.play().then(() => {
-            requestAnimationFrame(prosesFrame);
-        });
+        video.play().then(() => { requestAnimationFrame(prosesFrame); });
     })
-    .catch(function(error) {
-        console.log("Percobaan pertama gagal, mencoba fallback...");
-        // Jalur Cadangan jika perintah 'exact' ditolak oleh sistem enkripsi internal browser HP Anda
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
-        .then(function(stream) {
-            video.srcObject = stream;
-            video.play().then(() => { requestAnimationFrame(prosesFrame); });
-        })
-        .catch(err => alert("Kamera Error: Pasikan membuka lewat HTTPS dan Berikan Izin."));
-    });
+    .catch(err => alert("Kamera Error: Pastikan link HTTPS dan beri izin kamera."));
 
     function prosesFrame() {
         if (video.readyState === video.HAVE_ENOUGH_DATA) {
@@ -165,22 +140,19 @@
                 parseDataBarcode(code.data);
             }
         }
-        // Siklus pembacaan frame konstan diatur 80ms agar HP tidak overheat (sangat ringan)
-        setTimeout(() => { requestAnimationFrame(prosesFrame); }, 80);
+        setTimeout(() => { requestAnimationFrame(prosesFrame); }, 100); // Diberi jeda 100ms agar prosesor HP sangat santai
     }
 
-    // MEMISAHKAN SERIAL NUMBER DAN IMEI SECARA OTOMATIS
     function parseDataBarcode(text) {
         let cleanText = text.trim();
         
-        // Aturan IMEI: Karakter berupa 15 digit angka bersih
+        // Deteksi IMEI (15 digit angka)
         if (/^\d{15}$/.test(cleanText)) {
             document.getElementById('imei').value = cleanText;
             vibrateDevice();
         } 
-        // Aturan Serial Number: Alfanumerik sepanjang 10-12 karakter (Misal: HJZXJP96MM)
+        // Deteksi Serial Number iPhone (10-12 karakter alfanumerik)
         else if (cleanText.length >= 9 && cleanText.length <= 13 && !/\s/.test(cleanText)) {
-            // Potong teks jika barcode mencetak simbol awalan (S) cetakan Apple
             if (cleanText.toUpperCase().startsWith("S")) {
                 cleanText = cleanText.substring(1);
             }
@@ -210,12 +182,37 @@
         document.getElementById('imei').value = '';
     }
 
+    // STRATEGI LAZY LOADING: Library Excel baru didownload saat tombol di klik
     function unduhExcel() {
         if (dbData.length === 0) return alert("Data antrean masih kosong!");
+        
+        const btn = document.getElementById('btnExcel');
+        btn.innerText = "Memproses...";
+        btn.disabled = true;
+
+        // Cek jika library XLSX sudah pernah dimuat sebelumnya
+        if (window.XLSX) {
+            prosesEkspor();
+        } else {
+            // Memuat skrip Excel secara dinamis dan instan hanya saat dibutuhkan
+            const script = document.createElement('script');
+            script.src = "https://jsdelivr.net";
+            script.onload = () => {
+                prosesEkspor();
+            };
+            document.head.appendChild(script);
+        }
+    }
+
+    function prosesEkspor() {
         const ws = XLSX.utils.json_to_sheet(dbData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Data");
         XLSX.writeFile(wb, "Data_Scan_iPhone.xlsx");
+        
+        const btn = document.getElementById('btnExcel');
+        btn.innerText = "Unduh Excel";
+        btn.disabled = false;
     }
 </script>
 
