@@ -28,7 +28,7 @@
         }
         h3 { margin-top: 0; text-align: center; color: #212529; font-size: 16px;}
         
-        /* Area Kamera Native Anda (Struktur Tetap Sama) */
+        /* Area Kotak Kamera Native Anda (KEMBALI KE STRUKTUR AWAL YANG MENYALA) */
         .video-box {
             width: 100%;
             position: relative;
@@ -95,7 +95,7 @@
     </div>
     <div class="input-box">
         <label>Serial Number (S/N)</label>
-        <input type="text" id="sn" placeholder="Posisikan barcode horizontal pas di garis">
+        <input type="text" id="sn" placeholder="Posisikan barcode sejajar horizontal">
     </div>
     <div class="input-box">
         <label>IMEI / MEID</label>
@@ -121,30 +121,24 @@
     
     const codeReader = new ZXing.BrowserMultiFormatReader();
 
-    // MENGOPTIMALKAN RESOLUSI KAMERA (Wajib HD & Auto-focus makro agar garis tajam)
-    const HDConstraints = {
-        video: {
-            facingMode: "environment",
-            width: { ideal: 1280 },  // Naik ke resolusi HD agar garis barcode padat terlihat jelas
-            height: { ideal: 720 },
-            focusMode: "continuous"  // Mengaktifkan autofokus makro otomatis di Android/iOS
-        },
-        audio: false
-    };
+    // MENYUNTIKKAN PENGATURAN KHUSUS UNTUK KETAJAMAN DETEKSI KODE 128
+    const hints = new Map();
+    const formats = [
+        ZXing.BarcodeFormat.CODE_128,
+        ZXing.BarcodeFormat.CODE_39,
+        ZXing.BarcodeFormat.EAN_13
+    ];
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
+    hints.set(ZXing.DecodeHintType.TRY_HARDER, true); // Paksa engine bekerja ekstra keras membaca baris tipis
+    codeReader.hints = hints;
 
-    navigator.mediaDevices.getUserMedia(HDConstraints)
+    // KEMBALI MENGGUNAKAN KONFIGURASI KAMERA YANG SUDAH TERBUKTI MENYALA DI HP ANDA
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
     .then(function(stream) {
         video.srcObject = stream;
         video.play().then(() => { requestAnimationFrame(prosesFrame); });
     })
-    .catch(err => {
-        // Fallback jika HP menolak resolusi HD tertentu, pakai setelan default Anda yang menyala kemarin
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
-        .then(function(s) {
-            video.srcObject = s;
-            video.play().then(() => { requestAnimationFrame(prosesFrame); });
-        });
-    });
+    .catch(err => alert("Kamera Error: Pastikan menggunakan link HTTPS dan beri izin akses kamera."));
 
     function prosesFrame() {
         if (video.readyState === video.HAVE_ENOUGH_DATA) {
