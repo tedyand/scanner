@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Scanner Barcode iPhone</title>
-    <!-- Memuat Pustaka Scanner Terstabil dari Server Global -->
+    <!-- Memuat Pustaka Scanner Terstabil -->
     <script src="https://unpkg.com" type="text/javascript"></script>
     
     <style>
@@ -28,28 +28,30 @@
         }
         h3 { margin-top: 0; text-align: center; color: #212529; font-size: 16px;}
         
-        /* Area Kotak Kamera Bawaan Library */
-        #reader {
+        /* Tombol Paksa Kamera */
+        .btn-kamera-wajib {
             width: 100%;
-            background: #fafafa;
-            border-radius: 8px;
-            overflow: hidden;
-            border: 2px dashed #bbb !important;
-            margin-bottom: 15px;
-        }
-        /* Mempercantik tombol bawaan library agar mudah di-klik */
-        #reader button {
-            background-color: #007aff;
+            background-color: #ff9500;
             color: white;
-            padding: 8px 14px;
+            padding: 14px;
+            font-size: 15px;
             font-weight: bold;
             border: none;
-            border-radius: 6px;
-            margin: 10px auto;
-            display: block;
+            border-radius: 8px;
+            margin-bottom: 15px;
             cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
-        #reader img { display: none; } /* Hilangkan gambar ikon bawaan */
+
+        #scanner-box {
+            width: 100%;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid #ddd;
+            margin-bottom: 15px;
+            aspect-ratio: 4 / 3;
+        }
 
         .input-box { margin-bottom: 10px; }
         label { display: block; font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 4px; }
@@ -71,15 +73,21 @@
             border-top: 1px solid #dee2e6; padding-top: 8px; font-size: 13px;
         }
         .log-item { padding: 4px 0; border-bottom: 1px dashed #f1f3f5; color: #666;}
+        
+        /* Sembunyikan elemen teks eror bawaan library agar tidak mengotori layar */
+        #scanner-box button, #scanner-box span { display: none !important; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h3>Barcode Scanner Ultra Fail-Safe</h3>
+    <h3>Barcode Scanner Fail-Safe V2</h3>
     
-    <!-- Modul Kamera Utama Pustaka Resmi -->
-    <div id="reader"></div>
+    <!-- TOMBOL PAKSA MANUAL UNTUK MENYALAKAN KAMERA BELAKANG -->
+    <button class="btn-kamera-wajib" onclick="hidupkanKameraManual()">🔴 KLIK DI SINI UNTUK NYALAKAN KAMERA</button>
+    
+    <!-- Area Viewfinder Kamera -->
+    <div id="scanner-box"></div>
 
     <div class="input-box">
         <label>Nama Barang</label>
@@ -87,11 +95,11 @@
     </div>
     <div class="input-box">
         <label>Serial Number (S/N)</label>
-        <input type="text" id="sn" placeholder="Hasil scan barcode ke-1">
+        <input type="text" id="sn" placeholder="Arahkan ke barcode garis">
     </div>
     <div class="input-box">
         <label>IMEI / MEID</label>
-        <input type="text" id="imei" placeholder="Hasil scan barcode ke-2">
+        <input type="text" id="imei" placeholder="Otomatis terpisah">
     </div>
 
     <div class="row-btn">
@@ -109,39 +117,62 @@
     let dbData = [];
     let lastScanned = "";
     let debounceTimer;
+    let html5QrCode;
 
-    // 1. DAFTARKAN MESIN DECODER KHUSUS KODE BARCODE GARIS BOX IPHONE
-    const html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
-        fps: 15,
-        qrbox: { width: 300, height: 120 }, // Dimensi horizontal ideal untuk barcode garis
-        formatsToSupport: [ 
-            Html5QrcodeSupportedFormats.CODE_128, 
-            Html5QrcodeSupportedFormats.CODE_39,
-            Html5QrcodeSupportedFormats.EAN_13
-        ],
-        rememberLastUsedCamera: true,
-        supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
-    }, false);
+    // Buat objek scanner utama di awal
+    try {
+        html5QrCode = new Html5Qrcode("scanner-box", { 
+            formatsToSupport: [
+                Html5QrcodeSupportedFormats.CODE_128, 
+                Html5QrcodeSupportedFormats.CODE_39,
+                Html5QrcodeSupportedFormats.EAN_13
+            ] 
+        });
+    } catch(e) {
+        console.log("Scanner ready");
+    }
 
-    // Jalankan render scanner
-    html5QrcodeScanner.render(onScanSuccess);
+    // FUNGSI UTAMA: Memaksa browser HP meminta izin dan membuka kamera belakang
+    function hidupkanKameraManual() {
+        // Berhenti dulu jika sebelumnya ada proses kamera yang menggantung
+        html5QrCode.stop().catch(() => {});
 
-    // 2. FUNGSI MENANGKAP DAN MEMISAHKAN DATA BARCODE SECARA OTOMATIS
+        // Jalankan perintah tembak kamera belakang langsung
+        html5QrCode.start(
+            { facingMode: "environment" }, 
+            {
+                fps: 15,
+                qrbox: function(viewfinderWidth, viewfinderHeight) {
+                    return { width: Math.floor(viewfinderWidth * 0.85), height: Math.floor(viewfinderHeight * 0.4) };
+                },
+                aspectRatio: 1.333333
+            },
+            onScanSuccess
+        )
+        .then(() => {
+            // Ubah teks tombol jika berhasil menyala
+            document.querySelector('.btn-kamera-wajib').innerText = "🔄 KAMERA AKTIF (Klik untuk Reset)";
+            document.querySelector('.btn-kamera-wajib').style.backgroundColor = "#34c759";
+        })
+        .catch(err => {
+            alert("GAGAL MEMBUKA KAMERA!\n\n1. Pastikan link di atas diawali dengan HTTPS://\n2. Jika di iPhone, buka Pengaturan HP -> Safari -> Kamera -> pilih Izinkan.");
+        });
+    }
+
     function onScanSuccess(decodedText) {
         let cleanText = decodedText.trim();
         
-        // Kunci pembacaan ganda dalam waktu singkat
         if (cleanText === lastScanned) return;
         lastScanned = cleanText;
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => { lastScanned = ""; }, 1500);
 
-        // A. Filter IMEI (15 digit angka murni)
+        // Pisahkan IMEI (15 angka murni)
         if (/^\d{15}$/.test(cleanText)) {
             document.getElementById('imei').value = cleanText;
             vibrateHP();
         } 
-        // B. Filter Serial Number iPhone (9 sampai 13 karakter huruf & angka)
+        // Pisahkan Serial Number (9-13 alfanumerik)
         else if (cleanText.length >= 9 && cleanText.length <= 13 && !/\s/.test(cleanText)) {
             if (cleanText.toUpperCase().startsWith("S")) {
                 cleanText = cleanText.substring(1);
@@ -152,7 +183,7 @@
     }
 
     function vibrateHP() {
-        if (navigator.vibrate) navigator.vibrate(60);
+        if (navigator.vibrate) navigator.vibrate(50);
     }
 
     function simpanData() {
@@ -172,9 +203,8 @@
         document.getElementById('imei').value = '';
     }
 
-    // Lazy Loading Pustaka Excel (Web tetap dibuka dengan kilat dan hemat RAM HP)
     function unduhExcel() {
-        if (dbData.length === 0) return alert("Belum ada data di antrean!");
+        if (dbData.length === 0) return alert("Data antrean kosong!");
         
         const btn = document.getElementById('btnExcel');
         btn.innerText = "Memproses...";
