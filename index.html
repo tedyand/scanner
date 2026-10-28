@@ -3,12 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Input Barang Ke Excel (Murni Offline)</title>
+    <title>Scanner Barcode 128 ke Excel</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
         body { padding: 15px; background-color: #f4f6f9; color: #333; }
         h2 { text-align: center; margin-bottom: 15px; color: #2c3e50; }
         .container { max-width: 500px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        
+        /* Area Kamera */
+        #scanner-container {
+            position: relative;
+            width: 100%;
+            height: 250px;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid #3498db;
+        }
+        #scanner-container video { width: 100%; height: 100%; object-fit: cover; }
+        .scanner-laser {
+            position: absolute;
+            top: 50%; left: 0; width: 100%; height: 2px;
+            background: red; box-shadow: 0 0 8px red; z-index: 10;
+        }
+        
         .form-group { margin-top: 15px; }
         label { font-weight: bold; display: block; margin-bottom: 5px; }
         input[type="text"], input[type="number"] { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
@@ -19,18 +37,24 @@
         th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
         th { background-color: #34495e; color: white; }
         tr:nth-child(even) { background-color: #f9f9f9; }
+        #status-text { text-align: center; font-size: 13px; color: #e67e22; margin-top: 5px; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Input & Scan Barang</h2>
+    <h2>Pemindai Barcode 128</h2>
+    
+    <!-- Kotak Kamera Kamera -->
+    <div id="scanner-container">
+        <div class="scanner-laser"></div>
+    </div>
+    <div id="status-text">Meminta Akses Kamera HP...</div>
 
     <!-- Form Input Data Barang -->
     <div class="form-group">
-        <label for="barcode-res">Kode Barang / Barcode:</label>
-        <!-- Di HP, saat kolom ini diketuk, Anda bisa memanfaatkan tombol scanner bawaan keyboard HP Anda (jika ada) -->
-        <input type="text" id="barcode-res" placeholder="Ketik angka barcode di sini...">
+        <label for="barcode-res">Kode Barang / Barcode 128:</label>
+        <input type="text" id="barcode-res" placeholder="Scan barcode atau ketik manual...">
     </div>
     
     <div class="form-group">
@@ -46,9 +70,9 @@
     <button class="btn" onclick="tambahBarang()">Simpan Data</button>
     <button class="btn btn-excel" onclick="unduhExcel()">Download Data ke Excel</button>
 
-    <!-- Tabel Riwayat Scan -->
+    <!-- Tabel Riwayat -->
     <div class="table-container">
-        <h3>Daftar Barang</h3>
+        <h3>Daftar Barang Scan</h3>
         <table id="tabel-barang">
             <thead>
                 <tr>
@@ -63,11 +87,71 @@
     </div>
 </div>
 
+<!-- LIBRARY PANDUAN OFFLINE DARI QUAGGA (DILAYANI VIA LINK AMAN BACKUP CEPAT) -->
+<script src="https://jsdelivr.net"></script>
 <script>
-    // Array penampung data
     let dataBarang = [];
+    let lastResult = null;
+    let lastTime = 0;
 
-    // Fungsi Tambah Data ke Tabel
+    // Menjalankan Detektor Khusus Code 128 & EAN Produk Ritel
+    function inisialisasiScanner() {
+        if (typeof Quagga === "undefined") {
+            document.getElementById('status-text').innerText = "Gagal memuat sistem. Coba sambungkan internet sebentar lalu refresh.";
+            return;
+        }
+
+        Quagga.init({
+            inputStream: {
+                name: "Live",
+                type: "LiveStream",
+                target: document.querySelector('#scanner-container'),
+                constraints: {
+                    width: { min: 640 },
+                    height: { min: 480 },
+                    facingMode: "environment", // Mengunci kamera belakang HP Anda
+                    aspectRatio: { min: 1, max: 2 }
+                },
+            },
+            locator: { patchSize: "medium", halfSample: true },
+            decoder: {
+                readers: ["code_128_reader", "ean_reader", "upc_reader"] // Fokus utama membaca Code 128
+            },
+            locate: true
+        }, function(err) {
+            if (err) {
+                console.error(err);
+                document.getElementById('status-text').innerText = "Kamera diblokir. Klik ikon gembok di web atas lalu pilih 'Allow/Izinkan'.";
+                document.getElementById('status-text').style.color = "red";
+                return;
+            }
+            Quagga.start();
+            document.getElementById('status-text').innerText = "Scanner Code 128 Aktif! Sejajarkan barcode di garis merah.";
+            document.getElementById('status-text').style.color = "#2ecc71";
+        });
+    }
+
+    // Aksi saat barcode 128 berhasil tertangkap kamera
+    Quagga.onDetected(function(result) {
+        let code = result.codeResult.code;
+        let now = Date.now();
+
+        // Mencegah scanning berulang-ulang untuk satu barang yang sama dalam 2 detik
+        if (code === lastResult && (now - lastTime < 2000)) return;
+
+        lastResult = code;
+        lastTime = now;
+
+        document.getElementById('barcode-res').value = code;
+        document.getElementById('nama-barang').focus();
+        
+        // HP akan bergetar sedikit tanda scan berhasil
+        if (navigator.vibrate) navigator.vibrate(100);
+    });
+
+    window.addEventListener('DOMContentLoaded', inisialisasiScanner);
+
+    // Simpan data barang ke tabel internal
     function tambahBarang() {
         const kode = document.getElementById('barcode-res').value.trim();
         const nama = document.getElementById('nama-barang').value.trim();
@@ -79,49 +163,39 @@
             return;
         }
 
-        // Simpan ke memory
         dataBarang.push({ waktu, kode, nama, qty });
 
-        // Update Tabel HTML
         const tbody = document.querySelector('#tabel-barang tbody');
-        const row = `<tr><td>${waktu}</td><td>${kode}</td><td>${nama}</td><td>${qty}</td></tr>`;
-        tbody.insertAdjacentHTML('beforeend', row);
+        tbody.insertAdjacentHTML('beforeend', `<tr><td>${waktu}</td><td>${kode}</td><td>${nama}</td><td>${qty}</td></tr>`);
 
-        // Reset Input
         document.getElementById('barcode-res').value = '';
         document.getElementById('nama-barang').value = '';
         document.getElementById('jumlah-barang').value = '1';
-        
-        // Kembalikan fokus ke kolom barcode biar siap input lagi
-        document.getElementById('barcode-res').focus();
+        lastResult = null;
     }
 
-    // Fungsi Export Excel (Format CSV Murni Tanpa Library)
+    // Mengunduh Data ke File Excel (.csv rapi)
     function unduhExcel() {
         if (dataBarang.length === 0) {
-            alert('Belum ada data barang yang dimasukkan!');
+            alert('Belum ada data barang yang disimpan!');
             return;
         }
 
-        // Membuat struktur text CSV (dipisahkan oleh koma)
-        let csvContent = "Waktu,Kode Barang,Nama Barang,Jumlah (Qty)\n";
-        
+        let csvContent = "\uFEFFWaktu,Kode Barcode,Nama Barang,Jumlah (Qty)\n";
         dataBarang.forEach(item => {
             csvContent += `"${item.waktu}","${item.kode}","${item.nama}","${item.qty}"\n`;
         });
 
-        // Proses download file otomatis di HP / Laptop
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.setAttribute("href", url);
-        link.setAttribute("download", "Data_Barang_Scan.csv");
+        link.setAttribute("download", "Data_Scan_Barcode128.csv");
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
     }
 </script>
-
 </body>
 </html>
