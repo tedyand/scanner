@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Scanner Cepat</title>
-    <!-- MENGGANTI library pembaca ke ZXing Khusus Barcode Garis & QR (Sangat Akurat) -->
+    <!-- Library core pembaca barcode garis multi-format -->
     <script src="https://unpkg.com"></script>
     
     <style>
@@ -28,7 +28,7 @@
         }
         h3 { margin-top: 0; text-align: center; color: #212529; font-size: 16px;}
         
-        /* Area Kotak Kamera Native (TETAP SAMA PERSIS) */
+        /* Area Kamera Native Anda (Struktur Tetap Sama) */
         .video-box {
             width: 100%;
             position: relative;
@@ -45,7 +45,7 @@
         }
         #hidden-canvas { display: none; }
 
-        /* Garis Bidik Merah */
+        /* Garis Bidik Penyelaras */
         .laser {
             position: absolute;
             top: 50%; left: 5%;
@@ -82,7 +82,6 @@
 <div class="card">
     <h3>Barcode Scanner Instan</h3>
     
-    <!-- Tampilan Utama Kamera Belakang HP (STRUKTUR KAMERA AWAL ANDA) -->
     <div class="video-box">
         <video id="webcam" autoplay playsinline muted></video>
         <div class="laser"></div>
@@ -96,11 +95,11 @@
     </div>
     <div class="input-box">
         <label>Serial Number (S/N)</label>
-        <input type="text" id="sn" placeholder="Dekatkan kamera ke Barcode">
+        <input type="text" id="sn" placeholder="Posisikan barcode horizontal pas di garis">
     </div>
     <div class="input-box">
         <label>IMEI / MEID</label>
-        <input type="text" id="imei" placeholder="Otomatis terpisah">
+        <input type="text" id="imei" placeholder="Otomatis memisahkan data">
     </div>
 
     <div class="row-btn">
@@ -120,16 +119,32 @@
     const canvas = canvasElement.getContext('2d', { alpha: false });
     let dbData = [];
     
-    // Inisialisasi pembaca multi-format ZXing (Mendukung Barcode 128 dan QR sekaligus)
     const codeReader = new ZXing.BrowserMultiFormatReader();
 
-    // Mengaktifkan Kamera Belakang dengan Struktur yang Sudah Berhasil Sebelumnya (TIDAK DIRUBAH)
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
+    // MENGOPTIMALKAN RESOLUSI KAMERA (Wajib HD & Auto-focus makro agar garis tajam)
+    const HDConstraints = {
+        video: {
+            facingMode: "environment",
+            width: { ideal: 1280 },  // Naik ke resolusi HD agar garis barcode padat terlihat jelas
+            height: { ideal: 720 },
+            focusMode: "continuous"  // Mengaktifkan autofokus makro otomatis di Android/iOS
+        },
+        audio: false
+    };
+
+    navigator.mediaDevices.getUserMedia(HDConstraints)
     .then(function(stream) {
         video.srcObject = stream;
         video.play().then(() => { requestAnimationFrame(prosesFrame); });
     })
-    .catch(err => alert("Kamera Error: Pastikan menggunakan link HTTPS dan beri izin akses kamera."));
+    .catch(err => {
+        // Fallback jika HP menolak resolusi HD tertentu, pakai setelan default Anda yang menyala kemarin
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
+        .then(function(s) {
+            video.srcObject = s;
+            video.play().then(() => { requestAnimationFrame(prosesFrame); });
+        });
+    });
 
     function prosesFrame() {
         if (video.readyState === video.HAVE_ENOUGH_DATA) {
@@ -138,24 +153,21 @@
             canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
             
             try {
-                // ZXing membaca gambar canvas aktif dari streaming video Anda secara real-time
                 const result = codeReader.decodeFromCanvas(canvasElement);
                 if (result && result.text) {
                     parseDataBarcode(result.text);
                 }
             } catch (err) {
-                // Abaikan error pencarian jika frame belum fokus menangkap garis barcode
+                // frame belum fokus, siklus tetap berlanjut
             }
         }
-        // Siklus pembacaan frame konstan diatur 150ms agar HP tidak lemot dan baterai awet
-        setTimeout(() => { requestAnimationFrame(prosesFrame); }, 150); 
+        setTimeout(() => { requestAnimationFrame(prosesFrame); }, 120); 
     }
 
-    // MEMISAHKAN DATA SECARA OTOMATIS (TETAP SAMA)
     function parseDataBarcode(text) {
         let cleanText = text.trim();
         
-        // Deteksi IMEI (15 digit angka murni)
+        // Deteksi IMEI (15 digit angka)
         if (/^\d{15}$/.test(cleanText)) {
             document.getElementById('imei').value = cleanText;
             vibrateDevice();
@@ -191,7 +203,6 @@
         document.getElementById('imei').value = '';
     }
 
-    // LAZY LOADING EXCEL (Tetap dipertahankan agar muat halaman kilat)
     function unduhExcel() {
         if (dbData.length === 0) return alert("Data antrean masih kosong!");
         
