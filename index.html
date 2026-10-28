@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Scanner Cepat</title>
     
+    <!-- Memuat Paket Pustaka Desain Excel Berwarna Lengkap Sejak Awal -->
+    <script src="https://jsdelivr.net"></script>
+    
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -26,7 +29,6 @@
         }
         h3 { margin-top: 0; text-align: center; color: #212529; font-size: 16px;}
         
-        /* KODE KAMERA JERNIH ANDA (100% TIDAK DIUBAH) */
         .video-box {
             width: 100%;
             position: relative;
@@ -59,6 +61,10 @@
             border-radius: 6px; box-sizing: border-box; font-size: 15px;
             background-color: #fff;
         }
+        
+        /* TAMBAHAN BARU: Memaksa teks input otomatis terlihat kapital saat diketik manual di HP */
+        input { text-transform: uppercase; }
+        
         input:focus, select:focus { border-color: #007aff; outline: none; }
         
         .row-btn { display: flex; gap: 8px; margin-top: 15px; }
@@ -81,16 +87,14 @@
 <div class="card">
     <h3>Barcode Scanner Instan</h3>
     
-    <!-- KODE KAMERA JERNIH ANDA (100% TIDAK DIUBAH) -->
     <div class="video-box">
         <video id="webcam" autoplay playsinline muted></video>
         <div class="laser"></div>
     </div>
 
-    <!-- KOLOM INPUT DATA (KOLOM NAMA BARANG TELAH DIHAPUS) -->
     <div class="input-box">
         <label>Asal Barang</label>
-        <input type="text" id="asalBarang" placeholder="Nama toko">
+        <input type="text" id="asalBarang" placeholder="Contoh: US, SG, ID, dll.">
     </div>
 
     <div class="input-box">
@@ -132,13 +136,11 @@
         <div id="log-list"></div>
     </div>
 </div>
-
 <script>
     const video = document.getElementById('webcam');
     let dbData = [];
     let barcodeDetector;
 
-    // Memuat Engine Native OS Hardware (TIDAK DIUBAH)
     if ('BarcodeDetector' in window) {
         barcodeDetector = new BarcodeDetector({
             formats: ['code_128', 'code_39', 'ean_13', 'code_93']
@@ -147,7 +149,6 @@
         alert("Browser belum mendukung pemindaian native Hardware. Gunakan Google Chrome versi terbaru.");
     }
 
-    // KODE JALUR KAMERA JERNIH ANDA (100% TIDAK DIUBAH)
     navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
     .then(function(stream) {
         video.srcObject = stream;
@@ -169,9 +170,9 @@
         setTimeout(() => { requestAnimationFrame(prosesFrameNative); }, 80); 
     }
 
-    // LOGIKA PEMISAH DATA (TIDAK DIUBAH)
     function parseDataBarcode(text) {
-        let cleanText = text.trim();
+        // TAMBAHAN BARDE: Memaksa teks hasil scan kamera otomatis dikonversi jadi huruf kapital (.toUpperCase)
+        let cleanText = text.trim().toUpperCase();
         
         if (/^\d{15}$/.test(cleanText)) {
             document.getElementById('imei').value = cleanText;
@@ -190,17 +191,28 @@
         if (navigator.vibrate) navigator.vibrate(40);
     }
 
-    // FUNGSI SIMPAN DATA (DATA NAMA BARANG SUDAH DIHAPUS)
     function simpanData() {
-        const asal = document.getElementById('asalBarang').value;
+        // TAMBAHAN BARU: Memaksa data teks manual diubah menjadi kapital saat disimpan ke memori
+        const asal = document.getElementById('asalBarang').value.trim().toUpperCase();
         const tipe = document.getElementById('tipeBarang').value;
         const varian = document.getElementById('varianBarang').value;
-        const sn = document.getElementById('sn').value;
-        const imei = document.getElementById('imei').value;
+        const sn = document.getElementById('sn').value.trim().toUpperCase();
+        const imei = document.getElementById('imei').value.trim().toUpperCase();
 
         if (!sn && !imei) return alert("Silakan scan barcode terlebih dahulu!");
 
+        const sekarang = new Date();
+        const tgl = String(sekarang.getDate()).padStart(2, '0');
+        const bln = String(sekarang.getMonth() + 1).padStart(2, '0');
+        const thn = sekarang.getFullYear();
+        const jam = String(sekarang.getHours()).padStart(2, '0');
+        const mnt = String(sekarang.getMinutes()).padStart(2, '0');
+        const dtk = String(sekarang.getSeconds()).padStart(2, '0');
+        
+        const waktuInput = `${tgl}/${bln}/${thn} ${jam}:${mnt}:${dtk}`;
+
         dbData.push({ 
+            "Waktu Input": waktuInput,
             "Asal Barang": asal || '-',
             "Tipe Barang": tipe,
             "Varian Barang": varian,
@@ -209,34 +221,69 @@
         });
 
         const logList = document.getElementById('log-list');
-        logList.innerHTML += `<div class="log-item">✓ [${tipe} ${varian}] SN: ${sn || '-'} | IMEI: ${imei || '-'}</div>`;
+        logList.innerHTML += `<div class="log-item">✓ [${waktuInput}] ${tipe} ${varian} | SN: ${sn || '-'}</div>`;
         logList.scrollTop = logList.scrollHeight;
 
         document.getElementById('sn').value = '';
         document.getElementById('imei').value = '';
     }
 
-    document.getElementById('btnExcel').onclick = function unduhExcel() {
+    function unduhExcel() {
         if (dbData.length === 0) return alert("Data antrean masih kosong!");
         
         const btn = document.getElementById('btnExcel');
         btn.innerText = "Memproses...";
         btn.disabled = true;
 
-        if (window.XLSX) {
-            prosesEkspor();
-        } else {
-            const script = document.createElement('script');
-            script.src = "https://jsdelivr.net";
-            script.onload = () => { prosesEkspor(); };
-            document.head.appendChild(script);
-        }
+        prosesEkspor();
     }
 
     function prosesEkspor() {
         const ws = XLSX.utils.json_to_sheet(dbData);
+        
+        const gayaBiasa = {
+            font: { name: "Arial", sz: 10 },
+            border: {
+                top: { style: "thin", color: { rgb: "D3D3D3" } },
+                bottom: { style: "thin", color: { rgb: "D3D3D3" } },
+                left: { style: "thin", color: { rgb: "D3D3D3" } },
+                right: { style: "thin", color: { rgb: "D3D3D3" } }
+            }
+        };
+
+        const gayaJudul = {
+            font: { name: "Arial", sz: 11, bold: true, color: { rgb: "FFFFFF" } },
+            fill: { fgColor: { rgb: "2E7D32" } }, 
+            alignment: { horizontal: "center" },
+            border: {
+                top: { style: "thin", color: { rgb: "000000" } },
+                bottom: { style: "medium", color: { rgb: "000000" } },
+                left: { style: "thin", color: { rgb: "000000" } },
+                right: { style: "thin", color: { rgb: "000000" } }
+            }
+        };
+
+        for (let cellRef in ws) {
+            if (cellRef.startsWith('!')) continue;
+            const nomorBaris = parseInt(cellRef.replace(/[A-Z]/g, ''), 10);
+            if (nomorBaris === 1) {
+                ws[cellRef].s = gayaJudul;
+            } else {
+                ws[cellRef].s = gayaBiasa;
+            }
+        }
+
+        ws['!cols'] = [
+            { wch: 20 }, 
+            { wch: 15 }, 
+            { wch: 15 }, 
+            { wch: 15 }, 
+            { wch: 18 }, 
+            { wch: 18 }  
+        ];
+
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Data");
+        XLSX.utils.book_append_sheet(wb, ws, "Data Scan");
         XLSX.writeFile(wb, "Data_Scan_iPhone.xlsx");
         
         const btn = document.getElementById('btnExcel');
@@ -244,6 +291,5 @@
         btn.disabled = false;
     }
 </script>
-
 </body>
 </html>
