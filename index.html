@@ -62,7 +62,7 @@
             background-color: #fff;
         }
         
-        /* TAMBAHAN BARU: Memaksa teks input otomatis terlihat kapital saat diketik manual di HP */
+        /* Memaksa teks input otomatis terlihat kapital saat diketik manual di HP */
         input { text-transform: uppercase; }
         
         input:focus, select:focus { border-color: #007aff; outline: none; }
@@ -160,9 +160,12 @@
         if (video.readyState === video.HAVE_ENOUGH_DATA && barcodeDetector) {
             barcodeDetector.detect(video)
                 .then(barcodes => {
-                    if (barcodes.length > 0) {
-                        const kodeHasilScan = barcodes.rawValue; 
-                        parseDataBarcode(kodeHasilScan);
+                    // PERBAIKAN UTAMA: Mengambil indeks data pertama array hasil tangkapan sensor kamera HP
+                    if (barcodes && barcodes.length > 0) {
+                        const kodeHasilScan = barcodes[0].rawValue; 
+                        if (kodeHasilScan) {
+                            parseDataBarcode(kodeHasilScan);
+                        }
                     }
                 })
                 .catch(err => console.error("Deteksi error:", err));
@@ -171,7 +174,6 @@
     }
 
     function parseDataBarcode(text) {
-        // TAMBAHAN BARDE: Memaksa teks hasil scan kamera otomatis dikonversi jadi huruf kapital (.toUpperCase)
         let cleanText = text.trim().toUpperCase();
         
         if (/^\d{15}$/.test(cleanText)) {
@@ -192,7 +194,6 @@
     }
 
     function simpanData() {
-        // TAMBAHAN BARU: Memaksa data teks manual diubah menjadi kapital saat disimpan ke memori
         const asal = document.getElementById('asalBarang').value.trim().toUpperCase();
         const tipe = document.getElementById('tipeBarang').value;
         const varian = document.getElementById('varianBarang').value;
