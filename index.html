@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Scanner Barcode iPhone</title>
-    <!-- Memuat Pustaka Scanner Terstabil -->
+    <!-- Memuat Pustaka Scanner Versi Stabil Resmi -->
     <script src="https://unpkg.com" type="text/javascript"></script>
     
     <style>
@@ -28,7 +28,6 @@
         }
         h3 { margin-top: 0; text-align: center; color: #212529; font-size: 16px;}
         
-        /* Tombol Paksa Kamera */
         .btn-kamera-wajib {
             width: 100%;
             background-color: #ff9500;
@@ -74,19 +73,19 @@
         }
         .log-item { padding: 4px 0; border-bottom: 1px dashed #f1f3f5; color: #666;}
         
-        /* Sembunyikan elemen teks eror bawaan library agar tidak mengotori layar */
+        /* Menyembunyikan log eror bawaan agar tidak merusak tata letak */
         #scanner-box button, #scanner-box span { display: none !important; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h3>Barcode Scanner Fail-Safe V2</h3>
+    <h3>Barcode Scanner Fail-Safe V3</h3>
     
-    <!-- TOMBOL PAKSA MANUAL UNTUK MENYALAKAN KAMERA BELAKANG -->
-    <button class="btn-kamera-wajib" onclick="hidupkanKameraManual()">🔴 KLIK DI SINI UNTUK NYALAKAN KAMERA</button>
+    <!-- Tombol aktivasi manual kamera belakang -->
+    <button class="btn-kamera-wajib" onclick="hidupkanKameraManual()">🔴 AKTIFKAN KAMERA BELAKANG</button>
     
-    <!-- Area Viewfinder Kamera -->
+    <!-- Kotak Lensa Kamera -->
     <div id="scanner-box"></div>
 
     <div class="input-box">
@@ -99,7 +98,7 @@
     </div>
     <div class="input-box">
         <label>IMEI / MEID</label>
-        <input type="text" id="imei" placeholder="Otomatis terpisah">
+        <input type="text" id="imei" placeholder="Otomatis memisahkan kode">
     </div>
 
     <div class="row-btn">
@@ -119,30 +118,29 @@
     let debounceTimer;
     let html5QrCode;
 
-    // Buat objek scanner utama di awal
     try {
         html5QrCode = new Html5Qrcode("scanner-box", { 
             formatsToSupport: [
                 Html5QrcodeSupportedFormats.CODE_128, 
                 Html5QrcodeSupportedFormats.CODE_39,
                 Html5QrcodeSupportedFormats.EAN_13
-            ] 
+            ],
+            // SOLUSI UTAMA: Matikan detektor native bawaan HP yang memicu blank hitam
+            useBarCodeDetectorIfSupported: false 
         });
     } catch(e) {
-        console.log("Scanner ready");
+        console.log("Scanner siap diinisialisasi.");
     }
 
-    // FUNGSI UTAMA: Memaksa browser HP meminta izin dan membuka kamera belakang
     function hidupkanKameraManual() {
-        // Berhenti dulu jika sebelumnya ada proses kamera yang menggantung
         html5QrCode.stop().catch(() => {});
 
-        // Jalankan perintah tembak kamera belakang langsung
         html5QrCode.start(
-            { facingMode: "environment" }, 
+            { facingMode: "environment" }, // Kamera belakang wajib aktif
             {
                 fps: 15,
                 qrbox: function(viewfinderWidth, viewfinderHeight) {
+                    // Kotak bidik horizontal panjang agar sesuai bentuk barcode dus iPhone
                     return { width: Math.floor(viewfinderWidth * 0.85), height: Math.floor(viewfinderHeight * 0.4) };
                 },
                 aspectRatio: 1.333333
@@ -150,15 +148,15 @@
             onScanSuccess
         )
         .then(() => {
-            // Ubah teks tombol jika berhasil menyala
-            document.querySelector('.btn-kamera-wajib').innerText = "🔄 KAMERA AKTIF (Klik untuk Reset)";
+            document.querySelector('.btn-kamera-wajib').innerText = "🔄 KAMERA MENYALA (Klik untuk Reset)";
             document.querySelector('.btn-kamera-wajib').style.backgroundColor = "#34c759";
         })
         .catch(err => {
-            alert("GAGAL MEMBUKA KAMERA!\n\n1. Pastikan link di atas diawali dengan HTTPS://\n2. Jika di iPhone, buka Pengaturan HP -> Safari -> Kamera -> pilih Izinkan.");
+            alert("Kamera gagal dimuat. Pastikan Anda membuka link HTTPS di browser HP. Error: " + err);
         });
     }
 
+    // FUNGSI AUTO-PARSING DATA BARCODE IPHONE
     function onScanSuccess(decodedText) {
         let cleanText = decodedText.trim();
         
@@ -167,12 +165,12 @@
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => { lastScanned = ""; }, 1500);
 
-        // Pisahkan IMEI (15 angka murni)
+        // 1. Ciri IMEI: Berisi 15 digit angka bersih
         if (/^\d{15}$/.test(cleanText)) {
             document.getElementById('imei').value = cleanText;
             vibrateHP();
         } 
-        // Pisahkan Serial Number (9-13 alfanumerik)
+        // 2. Ciri Serial Number iPhone: Panjang 9-13 alfanumerik (tanpa spasi)
         else if (cleanText.length >= 9 && cleanText.length <= 13 && !/\s/.test(cleanText)) {
             if (cleanText.toUpperCase().startsWith("S")) {
                 cleanText = cleanText.substring(1);
@@ -204,7 +202,7 @@
     }
 
     function unduhExcel() {
-        if (dbData.length === 0) return alert("Data antrean kosong!");
+        if (dbData.length === 0) return alert("Data antrean masih kosong!");
         
         const btn = document.getElementById('btnExcel');
         btn.innerText = "Memproses...";
