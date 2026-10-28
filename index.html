@@ -119,14 +119,36 @@
     const canvas = canvasElement.getContext('2d', { alpha: false });
     let dbData = [];
 
-    // Hidupkan Kamera HP dengan Akses Cepat & Frame Rate Efisien
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", frameRate: { ideal: 15 } } })
+    // Konfigurasi kamera yang lebih kompatibel untuk berbagai jenis HP
+    const constraints = {
+        video: {
+            facingMode: "environment", // Mengutamakan kamera belakang
+            width: { ideal: 640 },
+            height: { ideal: 480 }
+        },
+        audio: false
+    };
+
+    // Hidupkan Kamera HP
+    navigator.mediaDevices.getUserMedia(constraints)
     .then(function(stream) {
         video.srcObject = stream;
+        // Atribut tambahan wajib untuk browser iOS/Safari & Chrome Mobile
         video.setAttribute("playsinline", true);
-        video.play();
-        requestAnimationFrame(tick);
-    }).catch(err => alert("Gagal akses kamera. Pastikan menggunakan link HTTPS di GitHub Pages."));
+        video.setAttribute("autoplay", true);
+        video.setAttribute("muted", true);
+        
+        // Memicu video agar pasti berputar sebelum dibaca Canvas
+        video.play().then(() => {
+            requestAnimationFrame(tick);
+        }).catch(err => {
+            console.log("Video play dipaksa jalan:", err);
+            requestAnimationFrame(tick);
+        });
+    })
+    .catch(err => {
+        alert("Kamera diblokir. Mohon periksa izin kamera di pengaturan browser Anda (Pastikan link ber-HTTPS). Detail: " + err.name);
+    });
 
     function tick() {
         if (video.readyState === video.HAVE_ENOUGH_DATA) {
@@ -134,22 +156,20 @@
             canvasElement.width = video.videoWidth;
             canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
             
-            // Mengambil citra gambar untuk diproses library jsQR
             const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
             const code = jsQR(imageData.data, imageData.width, imageData.height, {
                 inversionAttempts: "dontInvert",
             });
             
             if (code && code.data) {
-                prosesBarcode Terdeteksi(code.data);
+                prosesBarcode(code.data); // Memperbaiki penamaan fungsi
             }
         }
-        // Interval pembacaan frame diatur agar tidak membuat prosesor HP panas
         setTimeout(() => { requestAnimationFrame(tick); }, 60);
     }
 
     // LOGIKA AUTO-PARSING (Mengenali jenis Kode otomatis)
-    function prosesBarcodeTerdeteksi(text) {
+    function prosesBarcode(text) {
         let cleanText = text.trim();
         
         // Ciri IMEI: Berisi angka murni berjumlah 15 digit
@@ -157,9 +177,8 @@
             document.getElementById('imei').value = cleanText;
             vibrateHP();
         } 
-        // Ciri Serial Number: Alfanumerik biasanya 10-12 karakter (seperti HJZXJP96MM)
+        // Ciri Serial Number
         else if (cleanText.length >= 8 && cleanText.length <= 15 && !cleanText.includes(" ")) {
-            // Jika barcode menyertakan prefiks "(S)Serial No.", kita potong teksnya
             if(cleanText.toUpperCase().includes("S")) {
                cleanText = cleanText.replace(/[\(S\)\s]/g, '');
             }
@@ -169,7 +188,7 @@
     }
 
     function vibrateHP() {
-        if (navigator.vibrate) navigator.vibrate(50); // Getar halus di Android saat sukses scan
+        if (navigator.vibrate) navigator.vibrate(50);
     }
 
     function simpanData() {
@@ -181,12 +200,10 @@
 
         dbData.push({ "Nama Barang": nama, "Serial Number": sn, "IMEI": imei });
 
-        // Update list antrean di bawah layar
         const logList = document.getElementById('log-list');
         logList.innerHTML += `<div class="log-item">✓ SN: ${sn || '-'} | IMEI: ${imei || '-'}</div>`;
         logList.scrollTop = logList.scrollHeight;
 
-        // Kosongkan form hasil scan untuk barang berikutnya
         document.getElementById('sn').value = '';
         document.getElementById('imei').value = '';
     }
@@ -195,7 +212,7 @@
         if (dbData.length === 0) return alert("Belum ada data!");
         const ws = XLSX.utils.json_to_sheet(dbData);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook = wb, ws, "Data");
+        XLSX.utils.book_append_sheet(wb, ws, "Data");
         XLSX.writeFile(wb, "Data_Scan_iPhone.xlsx");
     }
 </script>
