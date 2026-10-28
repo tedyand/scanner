@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Scanner Cepat</title>
-    <!-- Memuat library inti pendukung via CDN ringan -->
+    <!-- MENGGANTI library pembaca ke Quagga Core khusus Barcode Garis (Sangat Ringan) -->
     <script src="https://jsdelivr.net"></script>
     
     <style>
@@ -28,7 +28,7 @@
         }
         h3 { margin-top: 0; text-align: center; color: #212529; font-size: 16px;}
         
-        /* Area Kotak Kamera Native */
+        /* Area Kotak Kamera Native (TETAP SAMA) */
         .video-box {
             width: 100%;
             position: relative;
@@ -82,7 +82,7 @@
 <div class="card">
     <h3>Barcode Scanner Instan</h3>
     
-    <!-- Tampilan Utama Kamera Belakang HP -->
+    <!-- Tampilan Utama Kamera Belakang HP (STRUKTUR TETAP ASLI KODE ANDA) -->
     <div class="video-box">
         <video id="webcam" autoplay playsinline muted></video>
         <div class="laser"></div>
@@ -120,7 +120,7 @@
     const canvas = canvasElement.getContext('2d', { alpha: false });
     let dbData = [];
 
-    // Mengaktifkan Kamera Belakang dengan Struktur yang Sudah Berhasil Sebelumnya
+    // Mengaktifkan Jalur Kamera Belakang Anda yang Sudah Sukses Sebelumnya (TIDAK BERUBAH)
     navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
     .then(function(stream) {
         video.srcObject = stream;
@@ -134,19 +134,26 @@
             canvasElement.width = video.videoWidth;
             canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
             
-            const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
-            const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                inversionAttempts: "dontInvert",
-            });
+            // Konversi gambar canvas ke format URL dasar agar dibaca mesin Quagga (Code 128)
+            const dataUrl = canvasElement.toDataURL('image/jpeg');
             
-            if (code && code.data) {
-                parseDataBarcode(code.data);
-            }
+            Quagga.decodeSingle({
+                decoder: {
+                    readers: ["code_128_reader"] // Mengunci pembacaan HANYA untuk tipe Barcode 128 retail iPhone
+                },
+                locate: true,
+                src: dataUrl
+            }, function(result) {
+                if (result && result.codeResult) {
+                    parseDataBarcode(result.codeResult.code);
+                }
+            });
         }
-        setTimeout(() => { requestAnimationFrame(prosesFrame); }, 100); // Ringan untuk RAM & tidak membuat HP panas
+        // Diatur 120ms agar pemrosesan gambar di HP tetap terasa enteng
+        setTimeout(() => { requestAnimationFrame(prosesFrame); }, 120); 
     }
 
-    // MEMISAHKAN DATA SECARA OTOMATIS
+    // MEMISAHKAN DATA SECARA OTOMATIS (TETAP SAMA)
     function parseDataBarcode(text) {
         let cleanText = text.trim();
         
@@ -186,7 +193,6 @@
         document.getElementById('imei').value = '';
     }
 
-    // LAZY LOADING EXCEL: Library baru diunduh ketika tombol ditekan agar hemat kuota & halaman cepat dibuka
     function unduhExcel() {
         if (dbData.length === 0) return alert("Data antrean masih kosong!");
         
