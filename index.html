@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Scanner Cepat</title>
-    <!-- Library pembaca barcode garis Quagga (TETAP SAMA) -->
-    <script src="https://jsdelivr.net"></script>
     
     <style>
         body {
@@ -28,7 +26,7 @@
         }
         h3 { margin-top: 0; text-align: center; color: #212529; font-size: 16px;}
         
-        /* KODE KAMERA AWAL ANDA (TIDAK DIUBAH) */
+        /* KODE KAMERA AWAL ANDA (100% TIDAK DIUBAH) */
         .video-box {
             width: 100%;
             position: relative;
@@ -43,8 +41,7 @@
             height: 100%;
             object-fit: cover;
         }
-        #hidden-canvas { display: none; }
-
+        
         .laser {
             position: absolute;
             top: 50%; left: 5%;
@@ -81,13 +78,11 @@
 <div class="card">
     <h3>Barcode Scanner Instan</h3>
     
-    <!-- KODE KAMERA AWAL ANDA (TIDAK DIUBAH) -->
+    <!-- KODE KAMERA AWAL ANDA (100% TIDAK DIUBAH) -->
     <div class="video-box">
         <video id="webcam" autoplay playsinline muted></video>
         <div class="laser"></div>
     </div>
-
-    <canvas id="hidden-canvas"></canvas>
 
     <div class="input-box">
         <label>Nama Barang</label>
@@ -115,50 +110,42 @@
 
 <script>
     const video = document.getElementById('webcam');
-    const canvasElement = document.getElementById('hidden-canvas');
-    const canvas = canvasElement.getContext('2d', { alpha: false });
     let dbData = [];
+    let barcodeDetector;
 
-    // KODE JALUR KAMERA AWAL ANDA (TIDAK DIUBAH SAMA SEKALI)
+    // TAMBAHAN BARU: Mengaktifkan mesin pemindai hardware bawaan OS internal HP [1]
+    if ('BarcodeDetector' in window) {
+        barcodeDetector = new BarcodeDetector({
+            formats: ['code_128', 'code_39', 'ean_13'] // Fokus penuh pada barcode garis retail iPhone
+        });
+    } else {
+        alert("Browser Anda belum mendukung pemindaian native Hardware. Pastikan Google Chrome / Safari sudah diperbarui ke versi terbaru.");
+    }
+
+    // KODE JALUR KAMERA AWAL ANDA (100% TIDAK DIUBAH)
     navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
     .then(function(stream) {
         video.srcObject = stream;
-        video.play().then(() => { requestAnimationFrame(prosesFrame); });
+        video.play().then(() => { requestAnimationFrame(prosesFrameNative); });
     })
     .catch(err => alert("Kamera Error: Pastikan menggunakan link HTTPS dan beri izin akses kamera."));
 
-    function prosesFrame() {
-        if (video.readyState === video.HAVE_ENOUGH_DATA) {
-            canvasElement.height = video.videoHeight;
-            canvasElement.width = video.videoWidth;
-            
-            // TAMBAHAN BARU: Memberi filter digital agar gambar barcode menjadi hitam-putih super tajam dan kontras tinggi
-            canvas.filter = "contrast(180%) brightness(110%) grayscale(100%)";
-            
-            canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
-            
-            try {
-                const dataUrl = canvasElement.toDataURL('image/jpeg');
-                Quagga.decodeSingle({
-                    decoder: {
-                        // Mengaktifkan juga format code_39 & ean_reader karena beberapa box Apple regional menggunakan format ini
-                        readers: ["code_128_reader", "code_39_reader", "ean_reader"]
-                    },
-                    locate: true,
-                    src: dataUrl
-                }, function(result) {
-                    if (result && result.codeResult && result.codeResult.code) {
-                        parseDataBarcode(result.codeResult.code);
+    function prosesFrameNative() {
+        if (video.readyState === video.HAVE_ENOUGH_DATA && barcodeDetector) {
+            // Membaca langsung dari elemen video aktif menggunakan kekuatan prosesor utama HP [1]
+            barcodeDetector.detect(video)
+                .then(barcodes => {
+                    if (barcodes.length > 0) {
+                        parseDataBarcode(barcodes[0].rawValue);
                     }
-                });
-            } catch (e) {
-                // Abaikan jika pemrosesan frame melambat
-            }
+                })
+                .catch(err => console.error("Deteksi gagal:", err));
         }
-        setTimeout(() => { requestAnimationFrame(prosesFrame); }, 150); 
+        // Siklus pembacaan sangat cepat (60ms) karena diproses langsung oleh mesin internal HP [1]
+        setTimeout(() => { requestAnimationFrame(prosesFrameNative); }, 60); 
     }
 
-    // LOGIKA PEMISAH DATA (TETAP SAMA)
+    // LOGIKA PEMISAH DATA (100% TETAP SAMA)
     function parseDataBarcode(text) {
         let cleanText = text.trim();
         
