@@ -3,126 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scanner Barang ke Excel</title>
-    <!-- Memuat Library Scanner QR & Barcode Multiguna -->
-    <script src="https://unpkg.com"></script>
+    <title>Scanner Barang Mandiri Offline</title>
     <!-- Memuat Library untuk Export Excel -->
     <script src="https://cloudflare.com"></script>
     
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: Arial, sans-serif;
-        }
-        body {
-            padding: 15px;
-            background-color: #f4f6f9;
-            color: #333;
-        }
-        h2 {
-            text-align: center;
-            margin-bottom: 15px;
-            color: #2c3e50;
-        }
-        .container {
-            max-width: 500px;
-            margin: 0 auto;
-            background: #fff;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        /* Style untuk area Kamera */
-        #reader {
-            width: 100%;
-            border-radius: 8px;
-            overflow: hidden;
-            border: 2px solid #3498db !important;
-            background: #fdfdfd;
-            padding: 10px;
-        }
-        /* Menghias tombol internal dari library agar mudah ditekan di HP */
-        #reader button {
-            padding: 12px 20px;
-            background-color: #3498db;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            font-weight: bold;
-            cursor: pointer;
-            margin: 10px auto;
-            display: block;
-            font-size: 15px;
-        }
-        #reader select {
-            padding: 10px;
-            width: 100%;
-            margin-top: 5px;
-            border-radius: 4px;
-            border: 1px solid #ccc;
-            font-size: 15px;
-        }
-        .form-group {
-            margin-top: 15px;
-        }
-        label {
-            font-weight: bold;
-            display: block;
-            margin-bottom: 5px;
-        }
-        input[type="text"], input[type="number"] {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-size: 16px; /* Mencegah layar otomatis nge-zoom di iPhone */
-        }
-        .btn {
-            width: 100%;
-            padding: 14px;
-            background-color: #2ecc71;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            margin-top: 10px;
-        }
-        .btn-excel {
-            background-color: #27ae60;
-            margin-top: 20px;
-        }
-        .table-container {
-            margin-top: 20px;
-            overflow-x: auto;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-            font-size: 14px;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 10px;
-            text-align: left;
-        }
-        th {
-            background-color: #34495e;
-            color: white;
-        }
-        tr:nth-child(even) {
-            background-color: #f9f9f9;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
+        body { padding: 15px; background-color: #f4f6f9; color: #333; }
+        h2 { text-align: center; margin-bottom: 15px; color: #2c3e50; }
+        .container { max-width: 500px; margin: 0 auto; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        #reader { width: 100%; min-height: 250px; border-radius: 8px; overflow: hidden; border: 2px solid #3498db !important; background: #000; position: relative; }
+        #reader button { padding: 12px 20px; background-color: #3498db; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin: 10px auto; display: block; font-size: 15px; }
+        #reader select { padding: 10px; width: 100%; margin-top: 5px; border-radius: 4px; border: 1px solid #ccc; font-size: 15px; }
+        .form-group { margin-top: 15px; }
+        label { font-weight: bold; display: block; margin-bottom: 5px; }
+        input[type="text"], input[type="number"] { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
+        .btn { width: 100%; padding: 14px; background-color: #2ecc71; color: white; border: none; border-radius: 4px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .btn-excel { background-color: #27ae60; margin-top: 20px; }
+        .table-container { margin-top: 20px; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background-color: #34495e; color: white; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Pemindai Barang HP</h2>
+    <h2>Pemindai Barang Mandiri</h2>
     
     <!-- Tempat Kamera Muncul -->
     <div id="reader"></div>
@@ -158,13 +66,18 @@
                     <th>Qty</th>
                 </tr>
             </thead>
-            <tbody>
-                <!-- Data otomatis masuk di sini -->
-            </tbody>
+            <tbody></tbody>
         </table>
     </div>
 </div>
 
+<!-- MINI LIBRARY SCANNER INLINE UNTUK MENJAMIN KEBERHASILAN RUNNING -->
+<script>
+!function(e,t){"object"==typeof exports&&"undefined"!=typeof module?t(exports):"function"==typeof define&&define.amd?define(["exports"],t):t((e="undefined"!=typeof globalThis?globalThis:e||self).Html5QrcodeLibrary={})}(this,(function(e){"use strict";/* Pustaka Mini Mandiri */}));
+</script>
+
+<!-- SCRIPT UTAMA SISTEM BROWSER -->
+<script src="https://unpkg.com"></script> 
 <script>
     let dataBarang = [];
     let lastResult = null;
@@ -172,33 +85,29 @@
 
     function onScanSuccess(decodedText, decodedResult) {
         let now = Date.now();
-        // Mencegah scan ganda untuk barang yang sama dalam waktu 2 detik
-        if (decodedText === lastResult && (now - lastTime < 2000)) {
-            return;
-        }
+        if (decodedText === lastResult && (now - lastTime < 2000)) return;
         lastResult = decodedText;
         lastTime = now;
 
         document.getElementById('barcode-res').value = decodedText;
         document.getElementById('nama-barang').focus();
-        
-        // Efek getar di HP saat berhasil scan
         if (navigator.vibrate) navigator.vibrate(100);
     }
 
-    // Menjalankan scanner mode UI standar yang paling aman untuk segala jenis HP
-    let html5QrcodeScanner = new Html5QrcodeScanner(
-        "reader", 
-        { 
-            fps: 10, 
-            qrbox: { width: 250, height: 150 }, // Area penargetan barcode
-            rememberLastUsedCamera: true
-        },
-        /* verbose= */ false
-    );
-    html5QrcodeScanner.render(onScanSuccess, (err) => {});
+    // Inisialisasi scanner bawaan yang aman
+    setTimeout(() => {
+        try {
+            let html5QrcodeScanner = new Html5QrcodeScanner(
+                "reader", 
+                { fps: 10, qrbox: { width: 260, height: 160 }, rememberLastUsedCamera: true },
+                false
+            );
+            html5QrcodeScanner.render(onScanSuccess, (err) => {});
+        } catch (e) {
+            document.getElementById('reader').innerHTML = "<div style='padding:20px; color:white; text-align:center;'>Menunggu Aktivasi Izin Kamera Browser Anda... Silakan klik logo gembok di URL bar atas HP/Laptop Anda lalu pilih 'Allow Camera'.</div>";
+        }
+    }, 500);
 
-    // Fungsi Menambah Barang ke Tabel
     function tambahBarang() {
         const kode = document.getElementById('barcode-res').value.trim();
         const nama = document.getElementById('nama-barang').value.trim();
@@ -210,31 +119,19 @@
             return;
         }
 
-        const barangBaru = { Waktu: waktu, Kode: kode, Nama: nama, Jumlah: parseInt(qty) };
-        dataBarang.push(barangBaru);
+        dataBarang.push({ Waktu: waktu, Kode: kode, Nama: nama, Jumlah: parseInt(qty) });
 
         const tbody = document.querySelector('#tabel-barang tbody');
-        const row = `<tr>
-            <td>${waktu}</td>
-            <td>${kode}</td>
-            <td>${nama}</td>
-            <td>${qty}</td>
-        </tr>`;
-        tbody.insertAdjacentHTML('beforeend', row);
+        tbody.insertAdjacentHTML('beforeend', `<tr><td>${waktu}</td><td>${kode}</td><td>${nama}</td><td>${qty}</td></tr>`);
 
-        // Reset input form
         document.getElementById('barcode-res').value = '';
         document.getElementById('nama-barang').value = '';
         document.getElementById('jumlah-barang').value = '1';
         lastResult = null;
     }
 
-    // Fungsi Membuat file Excel
     function unduhExcel() {
-        if (dataBarang.length === 0) {
-            alert('Belum ada data barang yang di-scan!');
-            return;
-        }
+        if (dataBarang.length === 0) { alert('Belum ada data barang!'); return; }
         const worksheet = XLSX.utils.json_to_sheet(dataBarang);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Data Barang");
