@@ -53,10 +53,13 @@
 
         .input-box { margin-bottom: 10px; }
         label { display: block; font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 4px; }
-        input {
+        
+        input, select {
             width: 100%; padding: 10px; border: 1px solid #ced4da;
             border-radius: 6px; box-sizing: border-box; font-size: 15px;
+            background-color: #fff;
         }
+        input:focus, select:focus { border-color: #007aff; outline: none; }
         
         .row-btn { display: flex; gap: 8px; margin-top: 15px; }
         button {
@@ -84,10 +87,32 @@
         <div class="laser"></div>
     </div>
 
+    <!-- KOLOM INPUT DATA (KOLOM NAMA BARANG TELAH DIHAPUS) -->
     <div class="input-box">
-        <label>Nama Barang</label>
-        <input type="text" id="nama" value="iPhone 15 Pink">
+        <label>Asal Barang</label>
+        <input type="text" id="asalBarang" placeholder="Nama toko">
     </div>
+
+    <div class="input-box">
+        <label>Tipe Barang</label>
+        <select id="tipeBarang">
+            <option value="iPhone 15">iPhone 15</option>
+            <option value="iPhone 16">iPhone 16</option>
+            <option value="iPhone 17">iPhone 17</option>
+            <option value="iPhone 18">iPhone 18</option>
+        </select>
+    </div>
+
+    <div class="input-box">
+        <label>Varian Barang</label>
+        <select id="varianBarang">
+            <option value="-">- (Kosong)</option>
+            <option value="Basic">Basic</option>
+            <option value="Pro">Pro</option>
+            <option value="Pro Max">Pro Max</option>
+        </select>
+    </div>
+
     <div class="input-box">
         <label>Serial Number (S/N)</label>
         <input type="text" id="sn" placeholder="Dekatkan kamera ke Barcode">
@@ -113,7 +138,7 @@
     let dbData = [];
     let barcodeDetector;
 
-    // Memuat Engine Native OS Hardware untuk pembacaan Barcode 128
+    // Memuat Engine Native OS Hardware (TIDAK DIUBAH)
     if ('BarcodeDetector' in window) {
         barcodeDetector = new BarcodeDetector({
             formats: ['code_128', 'code_39', 'ean_13', 'code_93']
@@ -130,14 +155,12 @@
     })
     .catch(err => alert("Kamera Error: Pastikan menggunakan link HTTPS dan beri izin akses kamera."));
 
-    // DI SINI PERBAIKANNYA: Mengurai data array barcodes dari mesin HP
     function prosesFrameNative() {
         if (video.readyState === video.HAVE_ENOUGH_DATA && barcodeDetector) {
             barcodeDetector.detect(video)
                 .then(barcodes => {
-                    // Jika terdeteksi barcode di kamera, ambil data pertama dari list array
                     if (barcodes.length > 0) {
-                        const kodeHasilScan = barcodes[0].rawValue; 
+                        const kodeHasilScan = barcodes.rawValue; 
                         parseDataBarcode(kodeHasilScan);
                     }
                 })
@@ -146,16 +169,14 @@
         setTimeout(() => { requestAnimationFrame(prosesFrameNative); }, 80); 
     }
 
-    // LOGIKA PEMISAH DATA (TETAP SAMA)
+    // LOGIKA PEMISAH DATA (TIDAK DIUBAH)
     function parseDataBarcode(text) {
         let cleanText = text.trim();
         
-        // Deteksi IMEI (15 digit angka murni)
         if (/^\d{15}$/.test(cleanText)) {
             document.getElementById('imei').value = cleanText;
             vibrateDevice();
         } 
-        // Deteksi Serial Number iPhone (9-13 alfanumerik)
         else if (cleanText.length >= 9 && cleanText.length <= 13 && !/\s/.test(cleanText)) {
             if (cleanText.toUpperCase().startsWith("S")) {
                 cleanText = cleanText.substring(1);
@@ -169,24 +190,33 @@
         if (navigator.vibrate) navigator.vibrate(40);
     }
 
+    // FUNGSI SIMPAN DATA (DATA NAMA BARANG SUDAH DIHAPUS)
     function simpanData() {
-        const nama = document.getElementById('nama').value;
+        const asal = document.getElementById('asalBarang').value;
+        const tipe = document.getElementById('tipeBarang').value;
+        const varian = document.getElementById('varianBarang').value;
         const sn = document.getElementById('sn').value;
         const imei = document.getElementById('imei').value;
 
         if (!sn && !imei) return alert("Silakan scan barcode terlebih dahulu!");
 
-        dbData.push({ "Nama Barang": nama, "Serial Number": sn, "IMEI": imei });
+        dbData.push({ 
+            "Asal Barang": asal || '-',
+            "Tipe Barang": tipe,
+            "Varian Barang": varian,
+            "Serial Number": sn, 
+            "IMEI": imei 
+        });
 
         const logList = document.getElementById('log-list');
-        logList.innerHTML += `<div class="log-item">✓ SN: ${sn || '-'} | IMEI: ${imei || '-'}</div>`;
+        logList.innerHTML += `<div class="log-item">✓ [${tipe} ${varian}] SN: ${sn || '-'} | IMEI: ${imei || '-'}</div>`;
         logList.scrollTop = logList.scrollHeight;
 
         document.getElementById('sn').value = '';
         document.getElementById('imei').value = '';
     }
 
-    function unduhExcel() {
+    document.getElementById('btnExcel').onclick = function unduhExcel() {
         if (dbData.length === 0) return alert("Data antrean masih kosong!");
         
         const btn = document.getElementById('btnExcel');
