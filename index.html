@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Scanner Cepat</title>
-    <!-- Library core pembaca barcode garis multi-format -->
-    <script src="https://unpkg.com"></script>
+    <!-- HANYA MENGGANTI INI: Memanggil library khusus barcode garis (Quagga Core) -->
+    <script src="https://jsdelivr.net"></script>
     
     <style>
         body {
@@ -28,7 +28,7 @@
         }
         h3 { margin-top: 0; text-align: center; color: #212529; font-size: 16px;}
         
-        /* Area Kotak Kamera Native Anda (KEMBALI KE STRUKTUR AWAL YANG MENYALA) */
+        /* KODE KAMERA AWAL ANDA (TIDAK DIUBAH) */
         .video-box {
             width: 100%;
             position: relative;
@@ -45,7 +45,6 @@
         }
         #hidden-canvas { display: none; }
 
-        /* Garis Bidik Penyelaras */
         .laser {
             position: absolute;
             top: 50%; left: 5%;
@@ -82,6 +81,7 @@
 <div class="card">
     <h3>Barcode Scanner Instan</h3>
     
+    <!-- KODE KAMERA AWAL ANDA (TIDAK DIUBAH) -->
     <div class="video-box">
         <video id="webcam" autoplay playsinline muted></video>
         <div class="laser"></div>
@@ -95,11 +95,11 @@
     </div>
     <div class="input-box">
         <label>Serial Number (S/N)</label>
-        <input type="text" id="sn" placeholder="Posisikan barcode sejajar horizontal">
+        <input type="text" id="sn" placeholder="Dekatkan kamera ke Barcode">
     </div>
     <div class="input-box">
         <label>IMEI / MEID</label>
-        <input type="text" id="imei" placeholder="Otomatis memisahkan data">
+        <input type="text" id="imei" placeholder="Otomatis terpisah">
     </div>
 
     <div class="row-btn">
@@ -118,21 +118,8 @@
     const canvasElement = document.getElementById('hidden-canvas');
     const canvas = canvasElement.getContext('2d', { alpha: false });
     let dbData = [];
-    
-    const codeReader = new ZXing.BrowserMultiFormatReader();
 
-    // MENYUNTIKKAN PENGATURAN KHUSUS UNTUK KETAJAMAN DETEKSI KODE 128
-    const hints = new Map();
-    const formats = [
-        ZXing.BarcodeFormat.CODE_128,
-        ZXing.BarcodeFormat.CODE_39,
-        ZXing.BarcodeFormat.EAN_13
-    ];
-    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
-    hints.set(ZXing.DecodeHintType.TRY_HARDER, true); // Paksa engine bekerja ekstra keras membaca baris tipis
-    codeReader.hints = hints;
-
-    // KEMBALI MENGGUNAKAN KONFIGURASI KAMERA YANG SUDAH TERBUKTI MENYALA DI HP ANDA
+    // KODE JALUR KAMERA AWAL ANDA (TIDAK DIUBAH)
     navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
     .then(function(stream) {
         video.srcObject = stream;
@@ -146,22 +133,32 @@
             canvasElement.width = video.videoWidth;
             canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
             
+            // HANYA MENGGANTI BAGIAN INI: Memproses gambar canvas menggunakan dekoder Quagga (khusus Code 128)
             try {
-                const result = codeReader.decodeFromCanvas(canvasElement);
-                if (result && result.text) {
-                    parseDataBarcode(result.text);
-                }
-            } catch (err) {
-                // frame belum fokus, siklus tetap berlanjut
+                const dataUrl = canvasElement.toDataURL('image/jpeg');
+                Quagga.decodeSingle({
+                    decoder: {
+                        readers: ["code_128_reader", "code_39_reader", "ean_reader"]
+                    },
+                    locate: true,
+                    src: dataUrl
+                }, function(result) {
+                    if (result && result.codeResult && result.codeResult.code) {
+                        parseDataBarcode(result.codeResult.code);
+                    }
+                });
+            } catch (e) {
+                // Abaikan error pencarian gambar lambat
             }
         }
-        setTimeout(() => { requestAnimationFrame(prosesFrame); }, 120); 
+        setTimeout(() => { requestAnimationFrame(prosesFrame); }, 150); 
     }
 
+    // LOGIKA PEMISAH DATA (TETAP SAMA)
     function parseDataBarcode(text) {
         let cleanText = text.trim();
         
-        // Deteksi IMEI (15 digit angka)
+        // Deteksi IMEI (15 digit angka murni)
         if (/^\d{15}$/.test(cleanText)) {
             document.getElementById('imei').value = cleanText;
             vibrateDevice();
