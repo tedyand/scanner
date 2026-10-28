@@ -3,199 +3,228 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scanner Barcode 128 ke Excel</title>
+    <title>Barcode Scanner to Excel</title>
+    <!-- Memuat Library Scanner & Excel via CDN -->
+    <script src="https://unpkg.com"></script>
+    <script src="https://jsdelivr.net"></script>
+    
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
-        body { padding: 15px; background-color: #f4f6f9; color: #333; }
-        h2 { text-align: center; margin-bottom: 15px; color: #2c3e50; }
-        .container { max-width: 500px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        
-        /* Area Kamera */
-        #scanner-container {
-            position: relative;
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f6f9;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            max-width: 800px;
             width: 100%;
-            height: 250px;
-            background: #000;
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+        h2 {
+            text-align: center;
+            color: #333;
+            margin-top: 0;
+        }
+        #reader {
+            width: 100%;
+            max-width: 500px;
+            margin: 20px auto;
             border-radius: 8px;
             overflow: hidden;
-            border: 2px solid #3498db;
+            border: 2px solid #ddd;
         }
-        #scanner-container video { width: 100%; height: 100%; object-fit: cover; }
-        .scanner-laser {
-            position: absolute;
-            top: 50%; left: 0; width: 100%; height: 2px;
-            background: red; box-shadow: 0 0 8px red; z-index: 10;
+        .form-group {
+            margin-bottom: 15px;
         }
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #555;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        button {
+            flex: 1;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-add { background-color: #28a745; color: white; }
+        .btn-add:hover { background-color: #218838; }
+        .btn-export { background-color: #007bff; color: white; }
+        .btn-export:hover { background-color: #0069d9; }
         
-        .form-group { margin-top: 15px; }
-        label { font-weight: bold; display: block; margin-bottom: 5px; }
-        input[type="text"], input[type="number"] { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
-        .btn { width: 100%; padding: 14px; background-color: #2ecc71; color: white; border: none; border-radius: 4px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        .btn-excel { background-color: #27ae60; margin-top: 20px; }
-        .table-container { margin-top: 20px; overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-        th { background-color: #34495e; color: white; }
-        tr:nth-child(even) { background-color: #f9f9f9; }
-        #status-text { text-align: center; font-size: 13px; color: #e67e22; margin-top: 5px; font-weight: bold; }
+        .table-container {
+            margin-top: 30px;
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            border: 1px solid #dee2e6;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #e9ecef;
+            color: #495057;
+        }
+        tr:nth-child(even) { background-color: #f8f9fa; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Pemindai Barcode 128</h2>
+    <h2>Barcode Scanner & Excel Exporter</h2>
     
-    <!-- Kotak Kamera Kamera -->
-    <div id="scanner-container">
-        <div class="scanner-laser"></div>
-    </div>
-    <div id="status-text">Meminta Akses Kamera HP...</div>
+    <!-- Area Kamera Scanner -->
+    <div id="reader"></div>
 
-    <!-- Form Input Data Barang -->
+    <!-- Form Input Data -->
     <div class="form-group">
-        <label for="barcode-res">Kode Barang / Barcode 128:</label>
-        <input type="text" id="barcode-res" placeholder="Scan barcode atau ketik manual...">
+        <label for="namaBarang">Nama Barang:</label>
+        <input type="text" id="namaBarang" value="iPhone 15 Pink">
     </div>
-    
     <div class="form-group">
-        <label for="nama-barang">Nama Barang:</label>
-        <input type="text" id="nama-barang" placeholder="Masukkan nama barang...">
+        <label for="serialNumber">Serial Number (S/N):</label>
+        <input type="text" id="serialNumber" placeholder="Scan atau isi manual">
     </div>
-
     <div class="form-group">
-        <label for="jumlah-barang">Jumlah (Qty):</label>
-        <input type="number" id="jumlah-barang" value="1" min="1">
+        <label for="imei">IMEI / MEID:</label>
+        <input type="text" id="imei" placeholder="Scan atau isi manual">
     </div>
 
-    <button class="btn" onclick="tambahBarang()">Simpan Data</button>
-    <button class="btn btn-excel" onclick="unduhExcel()">Download Data ke Excel</button>
+    <div class="button-group">
+        <button class="btn-add" onclick="tambahKeTabel()">Simpan ke Tabel</button>
+        <button class="btn-export" onclick="eksporKeExcel()">Unduh File Excel</button>
+    </div>
 
-    <!-- Tabel Riwayat -->
+    <!-- Tabel Data Sementara -->
     <div class="table-container">
-        <h3>Daftar Barang Scan</h3>
-        <table id="tabel-barang">
+        <h3>Data Terpindai Sementara</h3>
+        <table>
             <thead>
                 <tr>
-                    <th>Waktu</th>
-                    <th>Kode</th>
-                    <th>Nama</th>
-                    <th>Qty</th>
+                    <th>Nama Barang</th>
+                    <th>Serial Number</th>
+                    <th>IMEI</th>
                 </tr>
             </thead>
-            <tbody></tbody>
+            <tbody id="dataTabel">
+                <!-- Baris data baru akan muncul di sini -->
+            </tbody>
         </table>
     </div>
 </div>
 
-<!-- LIBRARY PANDUAN OFFLINE DARI QUAGGA (DILAYANI VIA LINK AMAN BACKUP CEPAT) -->
-<script src="https://jsdelivr.net"></script>
 <script>
-    let dataBarang = [];
-    let lastResult = null;
-    let lastTime = 0;
+    // Menyimpan barisan objek data scan
+    let listData = [];
+    
+    // Identifikasi input aktif untuk menentukan hasil scan masuk ke kolom mana
+    let inputAktif = 'serialNumber';
 
-    // Menjalankan Detektor Khusus Code 128 & EAN Produk Ritel
-    function inisialisasiScanner() {
-        if (typeof Quagga === "undefined") {
-            document.getElementById('status-text').innerText = "Gagal memuat sistem. Coba sambungkan internet sebentar lalu refresh.";
-            return;
-        }
+    // Event listener untuk memindahkan fokus deteksi scanner
+    document.getElementById('serialNumber').addEventListener('focus', () => inputAktif = 'serialNumber');
+    document.getElementById('imei').addEventListener('focus', () => inputAktif = 'imei');
 
-        Quagga.init({
-            inputStream: {
-                name: "Live",
-                type: "LiveStream",
-                target: document.querySelector('#scanner-container'),
-                constraints: {
-                    width: { min: 640 },
-                    height: { min: 480 },
-                    facingMode: "environment", // Mengunci kamera belakang HP Anda
-                    aspectRatio: { min: 1, max: 2 }
-                },
-            },
-            locator: { patchSize: "medium", halfSample: true },
-            decoder: {
-                readers: ["code_128_reader", "ean_reader", "upc_reader"] // Fokus utama membaca Code 128
-            },
-            locate: true
-        }, function(err) {
-            if (err) {
-                console.error(err);
-                document.getElementById('status-text').innerText = "Kamera diblokir. Klik ikon gembok di web atas lalu pilih 'Allow/Izinkan'.";
-                document.getElementById('status-text').style.color = "red";
-                return;
-            }
-            Quagga.start();
-            document.getElementById('status-text').innerText = "Scanner Code 128 Aktif! Sejajarkan barcode di garis merah.";
-            document.getElementById('status-text').style.color = "#2ecc71";
-        });
-    }
-
-    // Aksi saat barcode 128 berhasil tertangkap kamera
-    Quagga.onDetected(function(result) {
-        let code = result.codeResult.code;
-        let now = Date.now();
-
-        // Mencegah scanning berulang-ulang untuk satu barang yang sama dalam 2 detik
-        if (code === lastResult && (now - lastTime < 2000)) return;
-
-        lastResult = code;
-        lastTime = now;
-
-        document.getElementById('barcode-res').value = code;
-        document.getElementById('nama-barang').focus();
-        
-        // HP akan bergetar sedikit tanda scan berhasil
-        if (navigator.vibrate) navigator.vibrate(100);
+    // Inisialisasi Scanner Kamera Belakang
+    const html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
+        fps: 10, 
+        qrbox: { width: 250, height: 150 }, // disesuaikan untuk barcode panjang/linear
+        aspectRatio: 1.777778
     });
 
-    window.addEventListener('DOMContentLoaded', inisialisasiScanner);
-
-    // Simpan data barang ke tabel internal
-    function tambahBarang() {
-        const kode = document.getElementById('barcode-res').value.trim();
-        const nama = document.getElementById('nama-barang').value.trim();
-        const qty = document.getElementById('jumlah-barang').value.trim();
-        const waktu = new Date().toLocaleString('id-ID');
-
-        if (!kode || !nama) {
-            alert('Kode barang dan Nama barang tidak boleh kosong!');
-            return;
+    function onScanSuccess(decodedText, decodedResult) {
+        // Memasukkan hasil scan kode ke kolom form yang sedang aktif
+        document.getElementById(inputAktif).value = decodedText;
+        
+        // Otomatis berpindah fokus ke kolom berikutnya agar user tinggal scan beruntun
+        if (inputAktif === 'serialNumber') {
+            inputAktif = 'imei';
+            document.getElementById('imei').focus();
         }
-
-        dataBarang.push({ waktu, kode, nama, qty });
-
-        const tbody = document.querySelector('#tabel-barang tbody');
-        tbody.insertAdjacentHTML('beforeend', `<tr><td>${waktu}</td><td>${kode}</td><td>${nama}</td><td>${qty}</td></tr>`);
-
-        document.getElementById('barcode-res').value = '';
-        document.getElementById('nama-barang').value = '';
-        document.getElementById('jumlah-barang').value = '1';
-        lastResult = null;
     }
 
-    // Mengunduh Data ke File Excel (.csv rapi)
-    function unduhExcel() {
-        if (dataBarang.length === 0) {
-            alert('Belum ada data barang yang disimpan!');
+    function onScanFailure(error) {
+        // Kegagalan pencarian frame (diabaikan agar performa tetap lancar)
+    }
+
+    html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+
+    // Fungsi menyimpan input form ke list array & tabel preview
+    function tambahKeTabel() {
+        const nama = document.getElementById('namaBarang').value;
+        const sn = document.getElementById('serialNumber').value;
+        const imei = document.getElementById('imei').value;
+
+        if(!sn && !imei) {
+            alert("Mohon isi Serial Number atau IMEI terlebih dahulu!");
             return;
         }
 
-        let csvContent = "\uFEFFWaktu,Kode Barcode,Nama Barang,Jumlah (Qty)\n";
-        dataBarang.forEach(item => {
-            csvContent += `"${item.waktu}","${item.kode}","${item.nama}","${item.qty}"\n`;
-        });
+        const dataBaru = {
+            "Nama Barang": nama,
+            "Serial Number": sn,
+            "IMEI": imei
+        };
 
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", "Data_Scan_Barcode128.csv");
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        listData.push(dataBaru);
+
+        // Memperbarui UI Tabel HTML
+        const tbody = document.getElementById('dataTabel');
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${nama}</td><td>${sn}</td><td>${imei}</td>`;
+        tbody.appendChild(tr);
+
+        // Reset kolom input scan agar siap untuk perangkat berikutnya
+        document.getElementById('serialNumber').value = '';
+        document.getElementById('imei').value = '';
+        inputAktif = 'serialNumber';
+        document.getElementById('serialNumber').focus();
+    }
+
+    // Fungsi memproses konversi Array Data menjadi File Excel .xlsx asli
+    function eksporKeExcel() {
+        if(listData.length === 0) {
+            alert("Belum ada data untuk diekspor!");
+            return;
+        }
+
+        // Membuat objek sheet dari data JSON
+        const worksheet = XLSX.utils.json_to_sheet(listData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Data Scan Perangkat");
+
+        // Membuat file excel dan otomatis terunduh di browser lokal pengguna
+        XLSX.writeFile(workbook, "Data_Scan_Barcode_iPhone.xlsx");
     }
 </script>
+
 </body>
 </html>
