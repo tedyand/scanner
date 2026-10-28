@@ -26,7 +26,7 @@
         }
         h3 { margin-top: 0; text-align: center; color: #212529; font-size: 16px;}
         
-        /* KODE KAMERA AWAL ANDA (100% TIDAK DIUBAH) */
+        /* KODE KAMERA JERNIH ANDA (100% TIDAK DIUBAH) */
         .video-box {
             width: 100%;
             position: relative;
@@ -78,7 +78,7 @@
 <div class="card">
     <h3>Barcode Scanner Instan</h3>
     
-    <!-- KODE KAMERA AWAL ANDA (100% TIDAK DIUBAH) -->
+    <!-- KODE KAMERA JERNIH ANDA (100% TIDAK DIUBAH) -->
     <div class="video-box">
         <video id="webcam" autoplay playsinline muted></video>
         <div class="laser"></div>
@@ -113,16 +113,16 @@
     let dbData = [];
     let barcodeDetector;
 
-    // TAMBAHAN BARU: Mengaktifkan mesin pemindai hardware bawaan OS internal HP [1]
+    // Memuat Engine Native OS Hardware untuk pembacaan Barcode 128
     if ('BarcodeDetector' in window) {
         barcodeDetector = new BarcodeDetector({
-            formats: ['code_128', 'code_39', 'ean_13'] // Fokus penuh pada barcode garis retail iPhone
+            formats: ['code_128', 'code_39', 'ean_13', 'code_93']
         });
     } else {
-        alert("Browser Anda belum mendukung pemindaian native Hardware. Pastikan Google Chrome / Safari sudah diperbarui ke versi terbaru.");
+        alert("Browser belum mendukung pemindaian native Hardware. Gunakan Google Chrome versi terbaru.");
     }
 
-    // KODE JALUR KAMERA AWAL ANDA (100% TIDAK DIUBAH)
+    // KODE JALUR KAMERA JERNIH ANDA (100% TIDAK DIUBAH)
     navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
     .then(function(stream) {
         video.srcObject = stream;
@@ -130,22 +130,23 @@
     })
     .catch(err => alert("Kamera Error: Pastikan menggunakan link HTTPS dan beri izin akses kamera."));
 
+    // DI SINI PERBAIKANNYA: Mengurai data array barcodes dari mesin HP
     function prosesFrameNative() {
         if (video.readyState === video.HAVE_ENOUGH_DATA && barcodeDetector) {
-            // Membaca langsung dari elemen video aktif menggunakan kekuatan prosesor utama HP [1]
             barcodeDetector.detect(video)
                 .then(barcodes => {
+                    // Jika terdeteksi barcode di kamera, ambil data pertama dari list array
                     if (barcodes.length > 0) {
-                        parseDataBarcode(barcodes[0].rawValue);
+                        const kodeHasilScan = barcodes[0].rawValue; 
+                        parseDataBarcode(kodeHasilScan);
                     }
                 })
-                .catch(err => console.error("Deteksi gagal:", err));
+                .catch(err => console.error("Deteksi error:", err));
         }
-        // Siklus pembacaan sangat cepat (60ms) karena diproses langsung oleh mesin internal HP [1]
-        setTimeout(() => { requestAnimationFrame(prosesFrameNative); }, 60); 
+        setTimeout(() => { requestAnimationFrame(prosesFrameNative); }, 80); 
     }
 
-    // LOGIKA PEMISAH DATA (100% TETAP SAMA)
+    // LOGIKA PEMISAH DATA (TETAP SAMA)
     function parseDataBarcode(text) {
         let cleanText = text.trim();
         
