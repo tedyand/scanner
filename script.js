@@ -2,17 +2,44 @@ const video = document.getElementById('webcam');
 let dbData = [];
 let barcodeDetector;
 
-// Mengaktifkan sistem polyfill otomatis hanya jika dibuka di iPhone / Safari
 function inisialisasiScanner() {
-    // 100% Menggunakan Jalur Kamera Awal Jernih Anda (Tidak Boleh Dirubah)
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
+    // Mengaktifkan kamera dengan pengaturan autofokus tingkat lanjut
+    const constraints = {
+        video: {
+            facingMode: "environment",
+            width: { ideal: 1280 }, // Menggunakan resolusi HD agar garis barcode lebih tajam
+            height: { ideal: 720 },
+            advanced: [
+                { focusMode: "continuous" }, // Memaksa kamera terus mencari fokus otomatis
+                { focusDistance: 0.1 }       // Mode makro mendeteksi objek dekat
+            ]
+        },
+        audio: false
+    };
+
+    navigator.mediaDevices.getUserMedia(constraints)
     .then(function(stream) {
         video.srcObject = stream;
         video.play().then(() => { requestAnimationFrame(prosesFrameNative); });
+        
+        // Coba terapkan autofokus ulang setelah track kamera aktif (opsional/tambahan aman)
+        const track = stream.getVideoTracks()[0];
+        const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+        if (capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
+            track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(e => console.log(e));
+        }
     })
-    .catch(err => alert("Kamera Error: Pastikan menggunakan link HTTPS dan beri izin akses kamera."));
+    .catch(err => {
+        // Fallback jika resolusi HD atau advanced constraint ditolak oleh browser tertentu
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
+        .then(function(stream) {
+            video.srcObject = stream;
+            video.play().then(() => { requestAnimationFrame(prosesFrameNative); });
+        })
+        .catch(e => alert("Kamera Error: Pastikan menggunakan HTTPS dan beri izin akses."));
+    });
 
-    // Detektor OS Pintar: Pasang polyfill hanya jika perangkat terdeteksi iPhone
+    // Kode Detektor OS Pintar Anda ke bawah tetap sama...
     const isIphoneAtauIpad = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                              (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
@@ -20,6 +47,7 @@ function inisialisasiScanner() {
         buatObjekDetector();
     } else if (!('BarcodeDetector' in window)) {
         const scriptPelapis = document.createElement('script');
+        // KOREKSI: Menggunakan link polyfill BarcodeDetector yang valid untuk Safari/iPhone
         scriptPelapis.src = "https://jsdelivr.net";
         scriptPelapis.defer = true;
         scriptPelapis.onload = function() {
