@@ -1,0 +1,140 @@
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: #f1f3f5;
+    margin: 0;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.card {
+    width: 100%;
+    max-width: 480px;
+    background: #fff;
+    padding: 16px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    box-sizing: border-box;
+}
+h3 { 
+    margin-top: 0; 
+    text-align: center; 
+    color: #212529; 
+    font-size: 16px;
+}
+
+.video-box {
+    width: 100%;
+    position: relative;
+    background: #000;
+    border-radius: 8px;
+    overflow: hidden;
+    aspect-ratio: 4 / 3;
+    margin-bottom: 15px;
+}
+#webcam {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.laser {
+    position: absolute;
+    top: 50%; 
+    left: 5%;
+    width: 90%; 
+    height: 2px;
+    background-color: #ff3b30;
+    box-shadow: 0 0 6px #ff3b30;
+    transform: translateY(-50%);
+}
+
+.input-box { 
+    margin-bottom: 10px; 
+}
+label { 
+    display: block; 
+    font-size: 12px; 
+    font-weight: 600; 
+    color: #495057; 
+    margin-bottom: 4px; 
+}
+
+input, select {
+    width: 100%; 
+    padding: 10px; 
+    border: 1px solid #ced4da;
+    border-radius: 6px; 
+    box-sizing: border-box; 
+    font-size: 15px;
+    background-color: #fff;
+    transition: all 0.2s ease;
+}
+
+input { 
+    text-transform: uppercase; 
+}
+input:focus, select:focus { 
+    border-color: #007aff; 
+    outline: none; 
+}
+
+/* GAYA KOLOM SAAT DATA BELUM SESUAI */
+input.invalid {
+    border-color: #ff3b30 !important;
+    background-color: #ffebe9 !important;
+}
+
+/* GAYA TEKS PERINGATAN DI BAWAH KOLOM */
+.error-msg {
+    display: none;
+    color: #ff3b30;
+    font-size: 11px;
+    font-weight: 500;
+    margin-top: 4px;
+}
+
+.row-btn { 
+    display: flex; 
+    gap: 8px; 
+    margin-top: 15px; 
+}
+button {
+    flex: 1; 
+    padding: 12px; 
+    font-size: 14px; 
+    font-weight: bold;
+    border: none; 
+    border-radius: 6px; 
+    cursor: pointer; 
+    color: white;
+    transition: background 0.2s;
+}
+.btn-add { 
+    background: #34c759; 
+}
+
+/* TAMPILAN TOMBOL SAAT TERKUNCI (DISABLED) */
+button:disabled {
+    background: #a2a2a2 !important;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.btn-xl { 
+    background: #007aff; 
+}
+
+.log-box {
+    margin-top: 15px; 
+    max-height: 100px; 
+    overflow-y: auto;
+    border-top: 1px solid #dee2e6; 
+    padding-top: 8px; 
+    font-size: 13px;
+}
+.log-item { 
+    padding: 4px 0; 
+    border-bottom: 1px dashed #f1f3f5; 
+    color: #666;
+}
