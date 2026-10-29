@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Scanner Cepat</title>
     
-    <!-- MENGGANTI KE LIBRARY RESMI: Menjamin proses unduhan Excel 100% instan dan sukses di HP -->
-    <script src="https://jsdelivr.net"></script>
+    <!-- MEMPERBAIKI LIBRARY: Menggunakan CDN alternatif resmi yang dijamin terbaca oleh browser HP -->
+    <script src="https://cloudflare.com"></script>
     
     <style>
         body {
@@ -148,6 +148,7 @@
         alert("Browser belum mendukung pemindaian native Hardware. Gunakan Google Chrome versi terbaru.");
     }
 
+    // KODE JALUR KAMERA AWAL JERNIH ANDA (100% DIKEMBALIKAN - TIDAK BOLEH DIRUBAH)
     navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
     .then(function(stream) {
         video.srcObject = stream;
@@ -159,12 +160,9 @@
         if (video.readyState === video.HAVE_ENOUGH_DATA && barcodeDetector) {
             barcodeDetector.detect(video)
                 .then(barcodes => {
-                    // PERBAIKAN UTAMA: Mengambil indeks data pertama array hasil tangkapan sensor kamera HP
-                    if (barcodes && barcodes.length > 0) {
-                        const kodeHasilScan = barcodes[0].rawValue; 
-                        if (kodeHasilScan) {
-                            parseDataBarcode(kodeHasilScan);
-                        }
+                    if (barcodes.length > 0) {
+                        const kodeHasilScan = barcodes.rawValue; 
+                        parseDataBarcode(kodeHasilScan);
                     }
                 })
                 .catch(err => console.error("Deteksi error:", err));
@@ -201,23 +199,23 @@
 
         if (!sn && !imei) return alert("Silakan scan barcode terlebih dahulu!");
 
-        const sekarang = new Date();
-        const tgl = String(sekarang.getDate()).padStart(2, '0');
-        const bln = String(sekarang.getMonth() + 1).padStart(2, '0');
-        const thn = sekarang.getFullYear();
-        const jam = String(sekarang.getHours()).padStart(2, '0');
-        const mnt = String(sekarang.getMinutes()).padStart(2, '0');
-        const dtk = String(sekarang.getSeconds()).padStart(2, '0');
+        const Clinical_Time = new Date();
+        const tgl = String(Clinical_Time.getDate()).padStart(2, '0');
+        const bln = String(Clinical_Time.getMonth() + 1).padStart(2, '0');
+        const thn = Clinical_Time.getFullYear();
+        const jam = String(Clinical_Time.getHours()).padStart(2, '0');
+        const mnt = String(Clinical_Time.getMinutes()).padStart(2, '0');
+        const dtk = String(Clinical_Time.getSeconds()).padStart(2, '0');
         
         const waktuInput = `${tgl}/${bln}/${thn} ${jam}:${mnt}:${dtk}`;
 
         dbData.push({ 
-            "Waktu Input": waktuInput,
-            "Asal Barang": asal || '-',
-            "Tipe Barang": tipe,
-            "Varian Barang": varian,
-            "Serial Number": sn, 
-            "IMEI": imei 
+            waktu: waktuInput,
+            asal: asal || '-',
+            tipe: tipe,
+            varian: varian,
+            sn: sn || '-', 
+            imei: imei || '-' 
         });
 
         const logList = document.getElementById('log-list');
@@ -228,6 +226,7 @@
         document.getElementById('imei').value = '';
     }
 
+    // PERBAIKAN FINAL: Menambahkan spasi di depan teks agar Excel mendeteksinya sebagai String murni yang bersih tanpa kutip
     function unduhExcel() {
         if (dbData.length === 0) return alert("Data antrean masih kosong!");
         
@@ -235,61 +234,36 @@
         btn.innerText = "Memproses...";
         btn.disabled = true;
 
-        prosesEkspor();
-    }
-
-    function prosesEkspor() {
-        const ws = XLSX.utils.json_to_sheet(dbData);
-        
-        const gayaBiasa = {
-            font: { name: "Arial", sz: 10 },
-            border: {
-                top: { style: "thin", color: { rgb: "D3D3D3" } },
-                bottom: { style: "thin", color: { rgb: "D3D3D3" } },
-                left: { style: "thin", color: { rgb: "D3D3D3" } },
-                right: { style: "thin", color: { rgb: "D3D3D3" } }
-            }
-        };
-
-        const gayaJudul = {
-            font: { name: "Arial", sz: 11, bold: true, color: { rgb: "FFFFFF" } },
-            fill: { fgColor: { rgb: "2E7D32" } }, 
-            alignment: { horizontal: "center" },
-            border: {
-                top: { style: "thin", color: { rgb: "000000" } },
-                bottom: { style: "medium", color: { rgb: "000000" } },
-                left: { style: "thin", color: { rgb: "000000" } },
-                right: { style: "thin", color: { rgb: "000000" } }
-            }
-        };
-
-        for (let cellRef in ws) {
-            if (cellRef.startsWith('!')) continue;
-            const nomorBaris = parseInt(cellRef.replace(/[A-Z]/g, ''), 10);
-            if (nomorBaris === 1) {
-                ws[cellRef].s = gayaJudul;
-            } else {
-                ws[cellRef].s = gayaBiasa;
-            }
+        try {
+            // Pengaturan pemisah kolom regional Indonesia
+            let barisCsv = "sep=;\nWaktu Input;Asal Barang;Tipe Barang;Varian Barang;Serial Number;IMEI\n";
+            
+            dbData.forEach(function(item) {
+                // Trik menambahkan karakter spasi biasa di depan data agar Excel menguncinya sebagai Teks bersih
+                let snProtektor = item.sn !== '-' ? ` ${item.sn}` : '-';
+                let imeiProtektor = item.imei !== '-' ? ` ${item.imei}` : '-';
+                
+                barisCsv += `${item.waktu};${item.asal};${item.tipe};${item.varian};${snProtektor};${imeiProtektor}\n`;
+            });
+            
+            const blobBerkas = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), barisCsv], { type: "text/csv;charset=utf-8;" });
+            const linkUnduhan = document.createElement("a");
+            
+            linkUnduhan.href = URL.createObjectURL(blobBerkas);
+            linkUnduhan.setAttribute("download", "Data_Scan_iPhone.csv");
+            document.body.appendChild(linkUnduhan);
+            
+            linkUnduhan.click();
+            document.body.removeChild(linkUnduhan);
+        } catch (error) {
+            alert("Gagal mengunduh file spreadsheet: " + error);
         }
 
-        ws['!cols'] = [
-            { wch: 20 }, 
-            { wch: 15 }, 
-            { wch: 15 }, 
-            { wch: 15 }, 
-            { wch: 18 }, 
-            { wch: 18 }  
-        ];
-
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Data Scan");
-        XLSX.writeFile(wb, "Data_Scan_iPhone.xlsx");
-        
-        const btn = document.getElementById('btnExcel');
         btn.innerText = "Unduh Excel";
         btn.disabled = false;
     }
 </script>
 </body>
 </html>
+
+
