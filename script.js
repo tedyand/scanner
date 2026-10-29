@@ -94,17 +94,21 @@ function prosesFrameNative() {
 function parseDataBarcode(text) {
     let cleanText = text.trim().toUpperCase();
     
-    // PERBAIKAN: Cari string angka yang hanya berjumlah TEPAT 15 digit (\b berarti batas kata/string)
-    // Ini akan mengabaikan barcode EID karena EID memiliki 32 digit angka.
+    // 1. FILTER TEGAS: Jika teks berisi angka EID (atau panjangnya lebih dari 15 karakter), langsung ABAIKAN!
+    if (cleanText.length > 15 || cleanText.startsWith("EID")) {
+        return; // Keluar dari fungsi, kamera tidak akan memproses barcode ini
+    }
+    
+    // 2. Deteksi IMEI: Hanya menerima string angka yang panjangnya TEPAT 15 digit
     const matchImei = cleanText.match(/\b\d{15}\b/);
     if (matchImei) {
         document.getElementById('imei').value = matchImei[0];
         vibrateDevice();
         validasiInput();
-        return; // Keluar agar tidak mengecek kondisi SN
+        return; 
     } 
     
-    // 2. Deteksi SN (Tetap sama seperti bawaan Anda)
+    // 3. Deteksi SN: Menghapus teks bising dan menyisakan Serial Number (Hanya jika lolos filter di atas)
     if (cleanText.startsWith("(S)")) {
         cleanText = cleanText.replace("(S)", "").trim();
     }
@@ -116,13 +120,12 @@ function parseDataBarcode(text) {
     }
 
     // Pastikan panjang bersihnya berkisar di angka 10 karakter (standar SN Apple)
-    if (cleanText.length >= 10) {
+    if (cleanText.length === 10) {
         document.getElementById('sn').value = cleanText.substring(0, 10);
         vibrateDevice();
         validasiInput();
     }
 }
-
 
 function validasiInput() {
     const inputSn = document.getElementById('sn');
