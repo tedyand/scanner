@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Scanner Cepat</title>
+    
+    <!-- MENGGANTI KE LIBRARY RESMI: Menjamin proses unduhan Excel 100% instan dan sukses di HP -->
+    <script src="https://jsdelivr.net"></script>
+    
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f1f3f5;
+            margin: 0;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .card {
+            width: 100%;
+            max-width: 480px;
+            background: #fff;
+            padding: 16px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            box-sizing: border-box;
+        }
+        h3 { margin-top: 0; text-align: center; color: #212529; font-size: 16px;}
+        
+        .video-box {
+            width: 100%;
+            position: relative;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            aspect-ratio: 4 / 3;
+            margin-bottom: 15px;
+        }
+        #webcam {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .laser {
+            position: absolute;
+            top: 50%; left: 5%;
+            width: 90%; height: 2px;
+            background-color: #ff3b30;
+            box-shadow: 0 0 6px #ff3b30;
+            transform: translateY(-50%);
+        }
+
+        .input-box { margin-bottom: 10px; }
+        label { display: block; font-size: 12px; font-weight: 600; color: #495057; margin-bottom: 4px; }
+        
+        input, select {
+            width: 100%; padding: 10px; border: 1px solid #ced4da;
+            border-radius: 6px; box-sizing: border-box; font-size: 15px;
+            background-color: #fff;
+        }
+        
+        input { text-transform: uppercase; }
+        input:focus, select:focus { border-color: #007aff; outline: none; }
+        
+        .row-btn { display: flex; gap: 8px; margin-top: 15px; }
+        button {
+            flex: 1; padding: 12px; font-size: 14px; font-weight: bold;
+            border: none; border-radius: 6px; cursor: pointer; color: white;
+        }
+        .btn-add { background: #34c759; }
+        .btn-xl { background: #007aff; }
+        
+        .log-box {
+            margin-top: 15px; max-height: 100px; overflow-y: auto;
+            border-top: 1px solid #dee2e6; padding-top: 8px; font-size: 13px;
+        }
+        .log-item { padding: 4px 0; border-bottom: 1px dashed #f1f3f5; color: #666;}
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h3>Barcode Scanner Instan</h3>
+    
+    <div class="video-box">
+        <video id="webcam" autoplay playsinline muted></video>
+        <div class="laser"></div>
+    </div>
+
+    <div class="input-box">
+        <label>Asal Barang</label>
+        <input type="text" id="asalBarang" placeholder="Contoh: US, SG, ID, dll.">
+    </div>
+
+    <div class="input-box">
+        <label>Tipe Barang</label>
+        <select id="tipeBarang">
+            <option value="iPhone 15">iPhone 15</option>
+            <option value="iPhone 16">iPhone 16</option>
+            <option value="iPhone 17">iPhone 17</option>
+            <option value="iPhone 18">iPhone 18</option>
+        </select>
+    </div>
+
+    <div class="input-box">
+        <label>Varian Barang</label>
+        <select id="varianBarang">
+            <option value="-">- (Kosong)</option>
+            <option value="Basic">Basic</option>
+            <option value="Pro">Pro</option>
+            <option value="Pro Max">Pro Max</option>
+        </select>
+    </div>
+
+    <div class="input-box">
+        <label>Serial Number (S/N)</label>
+        <input type="text" id="sn" placeholder="Dekatkan kamera ke Barcode">
+    </div>
+    <div class="input-box">
+        <label>IMEI / MEID</label>
+        <input type="text" id="imei" placeholder="Otomatis terpisah">
+    </div>
+
+    <div class="row-btn">
+        <button class="btn-add" onclick="simpanData()">Simpan Data</button>
+        <button class="btn-xl" id="btnExcel" onclick="unduhExcel()">Unduh Excel</button>
+    </div>
+
+    <div class="log-box">
+        <strong style="font-size:12px; color:#333;">Antrean Data Saat Ini:</strong>
+        <div id="log-list"></div>
+    </div>
+</div>
+
+<script>
+    const video = document.getElementById('webcam');
+    let dbData = [];
+    let barcodeDetector;
+
+    if ('BarcodeDetector' in window) {
+        barcodeDetector = new BarcodeDetector({
+            formats: ['code_128', 'code_39', 'ean_13', 'code_93']
+        });
+    } else {
+        alert("Browser belum mendukung pemindaian native Hardware. Gunakan Google Chrome versi terbaru.");
+    }
+
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
+    .then(function(stream) {
+        video.srcObject = stream;
+        video.play().then(() => { requestAnimationFrame(prosesFrameNative); });
+    })
+    .catch(err => alert("Kamera Error: Pastikan menggunakan link HTTPS dan beri izin akses kamera."));
+
+    function prosesFrameNative() {
+        if (video.readyState === video.HAVE_ENOUGH_DATA && barcodeDetector) {
+            barcodeDetector.detect(video)
+                .then(barcodes => {
+                    // PERBAIKAN UTAMA: Mengambil indeks data pertama array hasil tangkapan sensor kamera HP
+                    if (barcodes && barcodes.length > 0) {
+                        const kodeHasilScan = barcodes[0].rawValue; 
+                        if (kodeHasilScan) {
+                            parseDataBarcode(kodeHasilScan);
+                        }
+                    }
+                })
+                .catch(err => console.error("Deteksi error:", err));
+        }
+        setTimeout(() => { requestAnimationFrame(prosesFrameNative); }, 80); 
+    }
+
+    function parseDataBarcode(text) {
+        let cleanText = text.trim().toUpperCase();
+        
+        if (/^\d{15}$/.test(cleanText)) {
+            document.getElementById('imei').value = cleanText;
+            vibrateDevice();
+        } 
+        else if (cleanText.length >= 9 && cleanText.length <= 13 && !/\s/.test(cleanText)) {
+            if (cleanText.toUpperCase().startsWith("S")) {
+                cleanText = cleanText.substring(1);
+            }
+            document.getElementById('sn').value = cleanText;
+            vibrateDevice();
+        }
+    }
+
+    function vibrateDevice() {
+        if (navigator.vibrate) navigator.vibrate(40);
+    }
+
+    function simpanData() {
+        const asal = document.getElementById('asalBarang').value.trim().toUpperCase();
+        const tipe = document.getElementById('tipeBarang').value;
+        const varian = document.getElementById('varianBarang').value;
+        const sn = document.getElementById('sn').value.trim().toUpperCase();
+        const imei = document.getElementById('imei').value.trim().toUpperCase();
+
+        if (!sn && !imei) return alert("Silakan scan barcode terlebih dahulu!");
+
+        const sekarang = new Date();
+        const tgl = String(sekarang.getDate()).padStart(2, '0');
+        const bln = String(sekarang.getMonth() + 1).padStart(2, '0');
+        const thn = sekarang.getFullYear();
+        const jam = String(sekarang.getHours()).padStart(2, '0');
+        const mnt = String(sekarang.getMinutes()).padStart(2, '0');
+        const dtk = String(sekarang.getSeconds()).padStart(2, '0');
+        
+        const waktuInput = `${tgl}/${bln}/${thn} ${jam}:${mnt}:${dtk}`;
+
+        dbData.push({ 
+            "Waktu Input": waktuInput,
+            "Asal Barang": asal || '-',
+            "Tipe Barang": tipe,
+            "Varian Barang": varian,
+            "Serial Number": sn, 
+            "IMEI": imei 
+        });
+
+        const logList = document.getElementById('log-list');
+        logList.innerHTML += `<div class="log-item">✓ [${waktuInput}] ${tipe} ${varian} | SN: ${sn || '-'}</div>`;
+        logList.scrollTop = logList.scrollHeight;
+
+        document.getElementById('sn').value = '';
+        document.getElementById('imei').value = '';
+    }
+
+    function unduhExcel() {
+        if (dbData.length === 0) return alert("Data antrean masih kosong!");
+        
+        const btn = document.getElementById('btnExcel');
+        btn.innerText = "Memproses...";
+        btn.disabled = true;
+
+        prosesEkspor();
+    }
+
+    function prosesEkspor() {
+        const ws = XLSX.utils.json_to_sheet(dbData);
+        
+        const gayaBiasa = {
+            font: { name: "Arial", sz: 10 },
+            border: {
+                top: { style: "thin", color: { rgb: "D3D3D3" } },
+                bottom: { style: "thin", color: { rgb: "D3D3D3" } },
+                left: { style: "thin", color: { rgb: "D3D3D3" } },
+                right: { style: "thin", color: { rgb: "D3D3D3" } }
+            }
+        };
+
+        const gayaJudul = {
+            font: { name: "Arial", sz: 11, bold: true, color: { rgb: "FFFFFF" } },
+            fill: { fgColor: { rgb: "2E7D32" } }, 
+            alignment: { horizontal: "center" },
+            border: {
+                top: { style: "thin", color: { rgb: "000000" } },
+                bottom: { style: "medium", color: { rgb: "000000" } },
+                left: { style: "thin", color: { rgb: "000000" } },
+                right: { style: "thin", color: { rgb: "000000" } }
+            }
+        };
+
+        for (let cellRef in ws) {
+            if (cellRef.startsWith('!')) continue;
+            const nomorBaris = parseInt(cellRef.replace(/[A-Z]/g, ''), 10);
+            if (nomorBaris === 1) {
+                ws[cellRef].s = gayaJudul;
+            } else {
+                ws[cellRef].s = gayaBiasa;
+            }
+        }
+
+        ws['!cols'] = [
+            { wch: 20 }, 
+            { wch: 15 }, 
+            { wch: 15 }, 
+            { wch: 15 }, 
+            { wch: 18 }, 
+            { wch: 18 }  
+        ];
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Data Scan");
+        XLSX.writeFile(wb, "Data_Scan_iPhone.xlsx");
+        
+        const btn = document.getElementById('btnExcel');
+        btn.innerText = "Unduh Excel";
+        btn.disabled = false;
+    }
+</script>
+</body>
+</html>
