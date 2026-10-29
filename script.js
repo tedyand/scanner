@@ -92,7 +92,6 @@ function parseDataBarcode(text) {
     }
 }
 
-// Menghapus data dan menyembunyikan penanda error jika kolom kosong kembali
 function validasiInput() {
     const inputSn = document.getElementById('sn');
     const inputImei = document.getElementById('imei');
@@ -161,7 +160,6 @@ function vibrateDevice() {
     if (navigator.vibrate) navigator.vibrate(40);
 }
 
-// PERBAIKAN PASTI: Mengunci kembali alamat target persis sesuai instruksi Anda
 function cekAppleCoverage() {
     const inputSn = document.getElementById('sn');
     const valueSn = inputSn.value.trim().toUpperCase();
