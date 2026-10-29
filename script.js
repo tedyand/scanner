@@ -48,7 +48,7 @@ function inisialisasiScanner() {
     } else if (!('BarcodeDetector' in window)) {
         const scriptPelapis = document.createElement('script');
         // PERBAIKAN: Menggunakan CDN polyfill BarcodeDetector yang valid dan lengkap agar Safari/iPhone bisa scan
-        scriptPelapis.src = "https://jsdelivr.net";
+        scriptPelapis.src = "https://unpkg.com";
         scriptPelapis.defer = true;
         scriptPelapis.onload = function() {
             // Mendaftarkan polyfill ke window browser jika belum didukung secara native
