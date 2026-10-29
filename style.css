@@ -13,13 +13,12 @@ body {
 
 .card {
     width: 100%;
-    max-width: 380px;
+    max-width: 410px; /* Dipersempit sedikit agar form naik ke atas */
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    padding: 16px 20px; 
+    padding: 16px 20px;
     border-radius: 20px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(255, 255, 255, 0.5);
     box-sizing: border-box;
 }
 
@@ -35,20 +34,20 @@ h3 {
 
 .video-box {
     width: 100%;
-    height: auto; /* Membiarkan tinggi kotak mengikuti bentuk asli aliran kamera */
-    max-height: 180px; /* Batas maksimal tinggi agar form tidak terdorong keluar layar HP */
+    max-width: 260px; /* Ukuran kotak kamera dibuat lebih kompak di tengah */
+    margin: 0 auto 12px auto; /* Otomatis rata tengah */
     position: relative;
     background: #000000;
     border-radius: 12px;
     overflow: hidden;
-    margin-bottom: 12px;
+    aspect-ratio: 4 / 3; /* WAJIB 4:3 sesuai kode awal jernih Anda agar deteksi instan */
     box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 
 #webcam {
     width: 100%;
     height: 100%;
-    object-fit: contain; /* KUNCI EMAS: Menampilkan gambar lensa asli tanpa ditarik melar agar sistem scan lancar */
+    object-fit: cover; /* Menampilkan gambar proporsional tanpa distorsi */
     display: block;
 }
 

@@ -2,21 +2,23 @@ const video = document.getElementById('webcam');
 let dbData = [];
 let barcodeDetector;
 
-// OPTIMASI TOTAL: Detektor pintar untuk memblokir unduhan luar di Android/PC agar loading instan 0 detik
+// Mengaktifkan sistem polyfill otomatis hanya jika dibuka di iPhone / Safari
 function inisialisasiScanner() {
-    // Selalu nyalakan kamera utama di awal tanpa menunggu skrip apa pun
-    jalankanKamera();
+    // 100% Menggunakan Jalur Kamera Awal Jernih Anda (Tidak Boleh Dirubah)
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
+    .then(function(stream) {
+        video.srcObject = stream;
+        video.play().then(() => { requestAnimationFrame(prosesFrameNative); });
+    })
+    .catch(err => alert("Kamera Error: Pastikan menggunakan link HTTPS dan beri izin akses kamera."));
 
-    // Cek apakah perangkat menggunakan sistem operasi iOS (iPhone / iPad / Mac)
+    // Detektor OS Pintar: Pasang polyfill hanya jika perangkat terdeteksi iPhone
     const isIphoneAtauIpad = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                              (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-    // Jika BUKAN iPhone (misal Android / PC), langsung pakai fitur bawaan browser secara lokal tanpa internet
     if (!isIphoneAtauIpad) {
         buatObjekDetector();
-    } 
-    // Jika perangkat adalah iPhone dan tidak mendukung native, baru unduh skrip pelapis secara asinkron
-    else if (!('BarcodeDetector' in window)) {
+    } else if (!('BarcodeDetector' in window)) {
         const scriptPelapis = document.createElement('script');
         scriptPelapis.src = "https://jsdelivr.net";
         scriptPelapis.defer = true;
@@ -44,22 +46,7 @@ function buatObjekDetector() {
     }
 }
 
-function jalankanKamera() {
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
-    .then(function(stream) {
-        video.srcObject = stream;
-        video.onloadedmetadata = function() {
-            video.play().then(() => { 
-                requestAnimationFrame(prosesFrameNative); 
-            });
-        };
-    })
-    .catch(err => {
-        console.error(err);
-        alert("Kamera Error: Pastikan menggunakan link HTTPS dan beri izin akses kamera.");
-    });
-}
-
+// 100% Menggunakan Fungsi Deteksi Frame Asli Anda yang Sukses Menangkap Barcode
 function prosesFrameNative() {
     if (video.readyState === video.HAVE_ENOUGH_DATA && barcodeDetector) {
         barcodeDetector.detect(video)
@@ -160,6 +147,7 @@ function vibrateDevice() {
     if (navigator.vibrate) navigator.vibrate(40);
 }
 
+// DIKUNCI PERMANEN: Alamat web checkcoverage resmi regional Indonesia sesuai permintaan Anda
 function cekAppleCoverage() {
     const inputSn = document.getElementById('sn');
     const valueSn = inputSn.value.trim().toUpperCase();
