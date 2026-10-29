@@ -3,6 +3,12 @@ let dbData = [];
 let barcodeDetector;
 
 function inisialisasiScanner() {
+    // Pastikan tag video memiliki atribut playsinline agar iOS tidak macet
+    if (video) {
+        video.setAttribute('playsinline', 'true');
+        video.setAttribute('webkit-playsinline', 'true');
+    }
+
     // Mengaktifkan kamera dengan pengaturan autofokus tingkat lanjut
     const constraints = {
         video: {
@@ -46,18 +52,26 @@ function inisialisasiScanner() {
     if (!isIphoneAtauIpad) {
         buatObjekDetector();
     } else if (!('BarcodeDetector' in window)) {
-        const scriptPelapis = document.createElement('script');
-        // PERBAIKAN: Menggunakan CDN polyfill BarcodeDetector yang valid dan lengkap agar Safari/iPhone bisa scan
-        scriptPelapis.src = "https://unpkg.com";
-        scriptPelapis.defer = true;
-        scriptPelapis.onload = function() {
-            // Mendaftarkan polyfill ke window browser jika belum didukung secara native
-            if (window.BarcodeDetectorPolyfill) {
-                window.BarcodeDetector = window.BarcodeDetectorPolyfill.BarcodeDetector;
-            }
-            buatObjekDetector();
+        // PERBAIKAN TOTAL: Muat mesin zbar-wasm terlebih dahulu, baru muat detektor utamanya agar iPhone tidak loading selamanya
+        const scriptMesin = document.createElement('script');
+        scriptMesin.src = "https://jsdelivr.net";
+        scriptMesin.defer = true;
+        
+        scriptMesin.onload = function() {
+            const scriptPelapis = document.createElement('script');
+            scriptPelapis.src = "https://jsdelivr.net";
+            scriptPelapis.defer = true;
+            
+            scriptPelapis.onload = function() {
+                // Mendaftarkan polyfill ke window browser jika belum didukung secara native
+                if (window.BarcodeDetectorPolyfill) {
+                    window.BarcodeDetector = window.BarcodeDetectorPolyfill.BarcodeDetector;
+                }
+                buatObjekDetector();
+            };
+            document.head.appendChild(scriptPelapis);
         };
-        document.head.appendChild(scriptPelapis);
+        document.head.appendChild(scriptMesin);
     } else {
         buatObjekDetector();
     }
