@@ -96,19 +96,31 @@ function parseDataBarcode(text) {
     
     // 1. FILTER TEGAS: Jika teks berisi angka EID (atau panjangnya lebih dari 15 karakter), langsung ABAIKAN!
     if (cleanText.length > 15 || cleanText.startsWith("EID")) {
-        return; // Keluar dari fungsi, kamera tidak akan memproses barcode ini
+        return; 
+    }
+    
+    // Fungsi pembantu untuk memicu efek shadow hijau pada input terkait
+    function beriEfekSukses(inputElement) {
+        if (inputElement) {
+            inputElement.classList.add('input-success');
+            setTimeout(() => {
+                inputElement.classList.remove('input-success');
+            }, 600); // Shadow hijau menyala selama 0.6 detik
+        }
     }
     
     // 2. Deteksi IMEI: Hanya menerima string angka yang panjangnya TEPAT 15 digit
     const matchImei = cleanText.match(/\b\d{15}\b/);
     if (matchImei) {
-        document.getElementById('imei').value = matchImei[0];
+        const inputImei = document.getElementById('imei');
+        inputImei.value = matchImei;
         vibrateDevice();
         validasiInput();
+        beriEfekSukses(inputImei); // Picu shadow hijau di kotak IMEI
         return; 
     } 
     
-    // 3. Deteksi SN: Menghapus teks bising dan menyisakan Serial Number (Hanya jika lolos filter di atas)
+    // 3. Deteksi SN: Menghapus teks bising dan menyisakan Serial Number
     if (cleanText.startsWith("(S)")) {
         cleanText = cleanText.replace("(S)", "").trim();
     }
@@ -121,9 +133,11 @@ function parseDataBarcode(text) {
 
     // Pastikan panjang bersihnya berkisar di angka 10 karakter (standar SN Apple)
     if (cleanText.length === 10) {
-        document.getElementById('sn').value = cleanText.substring(0, 10);
+        const inputSn = document.getElementById('sn');
+        inputSn.value = cleanText.substring(0, 10);
         vibrateDevice();
         validasiInput();
+        beriEfekSukses(inputSn); // Picu shadow hijau di kotak SN
     }
 }
 

@@ -231,3 +231,10 @@ button:disabled {
 .log-item:nth-child(even) {
     background-color: #f9fafb;
 }
+
+input.input-success {
+    border-color: #10b981 !important;
+    background-color: #f0fdf4 !important;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.5), 0 0 0 3px rgba(16, 185, 129, 0.2) !important;
+    transition: all 0.2s ease-in-out;
+}
