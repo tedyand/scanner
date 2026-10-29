@@ -155,26 +155,33 @@ function validasiInput() {
     let snValid = false;
     let imeiValid = false;
 
+    // Validasi Kolom Serial Number (SN)
     if (valueSn.length === 10) {
         inputSn.classList.remove('invalid');
-        errorSn.style.display = 'none';
+        inputSn.classList.add('valid'); // Tambah warna hijau jika benar
+        if (errorSn) errorSn.style.display = 'none';
         snValid = true;
     } else {
-        inputSn.classList.add('invalid');
-        errorSn.style.display = 'block';
+        inputSn.classList.remove('valid');
+        inputSn.classList.add('invalid'); // Tetap merah jika salah/kosong
+        if (errorSn) errorSn.style.display = 'block';
         snValid = false;
     }
 
+    // Validasi Kolom IMEI
     if (valueImei.length === 15) {
         inputImei.classList.remove('invalid');
-        errorImei.style.display = 'none';
+        inputImei.classList.add('valid'); // Tambah warna hijau jika benar
+        if (errorImei) errorImei.style.display = 'none';
         imeiValid = true;
     } else {
-        inputImei.classList.add('invalid');
-        errorImei.style.display = 'block';
+        inputImei.classList.remove('valid');
+        inputImei.classList.add('invalid'); // Tetap merah jika salah/kosong
+        if (errorImei) errorImei.style.display = 'block';
         imeiValid = false;
     }
 
+    // Mengaktifkan atau menonaktifkan tombol aksi
     if (snValid && imeiValid) {
         btnSimpan.disabled = false;
     } else {
