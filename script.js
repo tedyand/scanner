@@ -2,20 +2,50 @@ const video = document.getElementById('webcam');
 let dbData = [];
 let barcodeDetector;
 
-if ('BarcodeDetector' in window) {
-    barcodeDetector = new BarcodeDetector({
-        formats: ['code_128', 'code_39', 'ean_13', 'code_93']
-    });
-} else {
-    alert("Browser belum mendukung pemindaian native Hardware. Gunakan Google Chrome versi terbaru.");
+function inisialisasiScanner() {
+    jalankanKamera();
+
+    if (!('BarcodeDetector' in window)) {
+        const scriptPelapis = document.createElement('script');
+        scriptPelapis.src = "https://jsdelivr.net";
+        scriptPelapis.async = true;
+        scriptPelapis.onload = function() {
+            if (window.barcodeDetectorPolyfill) {
+                window.BarcodeDetector = window.barcodeDetectorPolyfill.BarcodeDetector;
+                buatObjekDetector();
+            }
+        };
+        document.head.appendChild(scriptPelapis);
+    } else {
+        buatObjekDetector();
+    }
 }
 
-navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
-.then(function(stream) {
-    video.srcObject = stream;
-    video.play().then(() => { requestAnimationFrame(prosesFrameNative); });
-})
-.catch(err => alert("Kamera Error: Pastikan menggunakan link HTTPS dan beri izin akses kamera."));
+function buatObjekDetector() {
+    try {
+        if ('BarcodeDetector' in window) {
+            barcodeDetector = new BarcodeDetector({
+                formats: ['code_128', 'code_39', 'ean_13', 'code_93']
+            });
+        }
+    } catch (err) {
+        console.error("Gagal merakit konfigurasi detector:", err);
+    }
+}
+
+function jalankanKamera() {
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
+    .then(function(stream) {
+        video.srcObject = stream;
+        video.onloadedmetadata = function() {
+            video.play().then(() => { requestAnimationFrame(prosesFrameNative); });
+        };
+    })
+    .catch(err => {
+        console.error(err);
+        alert("Kamera Error: Pastikan menggunakan link HTTPS dan beri izin akses kamera.");
+    });
+}
 
 function prosesFrameNative() {
     if (video.readyState === video.HAVE_ENOUGH_DATA && barcodeDetector) {
@@ -95,7 +125,6 @@ function validasiInput() {
         btnCekSn.disabled = true;
     }
 }
-
 window.addEventListener('beforeunload', function (e) {
     if (dbData.length > 0) {
         e.preventDefault();
@@ -126,19 +155,15 @@ function cekAppleCoverage() {
         return alert("Serial Number belum valid untuk dicek!");
     }
 
-    // Salin Serial Number otomatis ke Clipboard sistem internal HP/Laptop
     navigator.clipboard.writeText(valueSn).then(() => {
-        // DIKEMBALIKAN KE URL ASLI YANG SUDAH ANDA TES DAN BERHASIL
         window.open('https://checkcoverage.apple.com/?locale=in_ID', '_blank');
     }).catch(err => {
-        // Cadangan jika browser memblokir fungsi navigator.clipboard modern
         inputSn.select();
         inputSn.setSelectionRange(0, 99999);
         document.execCommand("copy");
         window.open('https://checkcoverage.apple.com/?locale=in_ID', '_blank');
     });
 }
-
 
 function simpanData() {
     const asal = document.getElementById('asalBarang').value.trim().toUpperCase();
@@ -168,7 +193,6 @@ function simpanData() {
         imei: imei 
     });
 
-    // PERBAIKAN: Menambahkan nomor urut otomatis berbasis panjang array dbData
     const nomorUrut = dbData.length;
     const logList = document.getElementById('log-list');
     logList.innerHTML += `<div class="log-item">${nomorUrut}. [${waktuInput}] ${tipe} ${varian} | SN: ${sn}</div>`;
@@ -277,3 +301,4 @@ function unduhExcel() {
 }
 
 validasiInput();
+inisialisasiScanner();
