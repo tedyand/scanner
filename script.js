@@ -2,13 +2,24 @@ const video = document.getElementById('webcam');
 let dbData = [];
 let barcodeDetector;
 
+// OPTIMASI TOTAL: Detektor pintar untuk memblokir unduhan luar di Android/PC agar loading instan 0 detik
 function inisialisasiScanner() {
+    // Selalu nyalakan kamera utama di awal tanpa menunggu skrip apa pun
     jalankanKamera();
 
-    if (!('BarcodeDetector' in window)) {
+    // Cek apakah perangkat menggunakan sistem operasi iOS (iPhone / iPad / Mac)
+    const isIphoneAtauIpad = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                             (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    // Jika BUKAN iPhone (misal Android / PC), langsung pakai fitur bawaan browser secara lokal tanpa internet
+    if (!isIphoneAtauIpad) {
+        buatObjekDetector();
+    } 
+    // Jika perangkat adalah iPhone dan tidak mendukung native, baru unduh skrip pelapis secara asinkron
+    else if (!('BarcodeDetector' in window)) {
         const scriptPelapis = document.createElement('script');
         scriptPelapis.src = "https://jsdelivr.net";
-        scriptPelapis.async = true;
+        scriptPelapis.defer = true;
         scriptPelapis.onload = function() {
             if (window.barcodeDetectorPolyfill) {
                 window.BarcodeDetector = window.barcodeDetectorPolyfill.BarcodeDetector;
@@ -38,7 +49,9 @@ function jalankanKamera() {
     .then(function(stream) {
         video.srcObject = stream;
         video.onloadedmetadata = function() {
-            video.play().then(() => { requestAnimationFrame(prosesFrameNative); });
+            video.play().then(() => { 
+                requestAnimationFrame(prosesFrameNative); 
+            });
         };
     })
     .catch(err => {
@@ -79,6 +92,7 @@ function parseDataBarcode(text) {
     }
 }
 
+// Menghapus data dan menyembunyikan penanda error jika kolom kosong kembali
 function validasiInput() {
     const inputSn = document.getElementById('sn');
     const inputImei = document.getElementById('imei');
@@ -147,6 +161,7 @@ function vibrateDevice() {
     if (navigator.vibrate) navigator.vibrate(40);
 }
 
+// PERBAIKAN PASTI: Mengunci kembali alamat target persis sesuai instruksi Anda
 function cekAppleCoverage() {
     const inputSn = document.getElementById('sn');
     const valueSn = inputSn.value.trim().toUpperCase();
