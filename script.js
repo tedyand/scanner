@@ -94,16 +94,17 @@ function prosesFrameNative() {
 function parseDataBarcode(text) {
     let cleanText = text.trim().toUpperCase();
     
-    // 1. Perbaikan Deteksi IMEI: Cari 15 digit angka berurutan di mana saja di dalam teks barcode
-    const matchImei = cleanText.match(/\d{15}/);
+    // PERBAIKAN: Cari string angka yang hanya berjumlah TEPAT 15 digit (\b berarti batas kata/string)
+    // Ini akan mengabaikan barcode EID karena EID memiliki 32 digit angka.
+    const matchImei = cleanText.match(/\b\d{15}\b/);
     if (matchImei) {
         document.getElementById('imei').value = matchImei[0];
         vibrateDevice();
         validasiInput();
-        return; // Keluar agar tidak mengecek kondisi SN jika ini adalah IMEI
+        return; // Keluar agar tidak mengecek kondisi SN
     } 
     
-    // 2. Perbaikan Deteksi SN: Menghapus teks/karakter bising dan menyisakan Serial Number yang valid
+    // 2. Deteksi SN (Tetap sama seperti bawaan Anda)
     if (cleanText.startsWith("(S)")) {
         cleanText = cleanText.replace("(S)", "").trim();
     }
@@ -121,6 +122,8 @@ function parseDataBarcode(text) {
         validasiInput();
     }
 }
+
+
 function validasiInput() {
     const inputSn = document.getElementById('sn');
     const inputImei = document.getElementById('imei');
