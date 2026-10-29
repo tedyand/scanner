@@ -64,15 +64,29 @@ function prosesFrameNative() {
 function parseDataBarcode(text) {
     let cleanText = text.trim().toUpperCase();
     
-    if (/^\d{15,}/.test(cleanText)) {
-        document.getElementById('imei').value = cleanText.substring(0, 15);
+    // 1. Perbaikan Deteksi IMEI: Cari 15 digit angka berurutan di mana saja di dalam teks barcode
+    const matchImei = cleanText.match(/\d{15}/);
+    if (matchImei) {
+        document.getElementById('imei').value = matchImei[0];
         vibrateDevice();
         validasiInput();
+        return; // Keluar agar tidak mengecek kondisi SN jika ini adalah IMEI
     } 
-    else if (cleanText.length >= 9 && !/\s/.test(cleanText)) {
-        if (cleanText.toUpperCase().startsWith("S")) {
-            cleanText = cleanText.substring(1);
-        }
+    
+    // 2. Perbaikan Deteksi SN: Menghapus teks/karakter bising dan menyisakan Serial Number yang valid
+    // Jika barcode diawali "(S) SERIAL NO." atau "S" biasa, kita bersihkan dulu
+    if (cleanText.startsWith("(S)")) {
+        cleanText = cleanText.replace("(S)", "").trim();
+    }
+    if (cleanText.startsWith("SERIAL NO.")) {
+        cleanText = cleanText.replace("SERIAL NO.", "").trim();
+    }
+    if (cleanText.startsWith("S") && cleanText.length > 10) {
+        cleanText = cleanText.substring(1);
+    }
+
+    // Pastikan panjang bersihnya berkisar di angka 10 karakter (standar SN Apple)
+    if (cleanText.length >= 10) {
         document.getElementById('sn').value = cleanText.substring(0, 10);
         vibrateDevice();
         validasiInput();
