@@ -89,18 +89,42 @@ function buatObjekDetector() {
     }
 }
 
-// 100% Menggunakan Fungsi Deteksi Frame Asli Anda yang Sukses Menangkap Barcode
+// Buat satu canvas tersembunyi di luar fungsi agar tidak membebani memori
+const canvasMemori = document.createElement('canvas');
+const ctxMemori = canvasMemori.getContext('2d');
+
 function prosesFrameNative() {
     if (video.readyState === video.HAVE_ENOUGH_DATA && barcodeDetector) {
-        barcodeDetector.detect(video)
-            .then(barcodes => {
-                if (barcodes.length > 0) {
-                    // KOREKSI INTERNAL: Mengambil properti rawValue dengan benar dari indeks barcode pertama
-                    const kodeHasilScan = barcodes[0].rawValue; 
-                    parseDataBarcode(kodeHasilScan);
-                }
-            })
-            .catch(err => console.error("Deteksi error:", err));
+        
+        // Cek kembali apakah perangkatnya iOS
+        const isIphoneAtauIpad = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                                 (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+        if (isIphoneAtauIpad) {
+            // KHUSUS iOS: Gambar frame video ke canvas tersembunyi terlebih dahulu agar terbaca oleh polyfill
+            canvasMemori.width = video.videoWidth;
+            canvasMemori.height = video.videoHeight;
+            ctxMemori.drawImage(video, 0, 0, canvasMemori.width, canvasMemori.height);
+            
+            // Lakukan deteksi lewat objek canvas, bukan elemen video langsung
+            barcodeDetector.detect(canvasMemori)
+                .then(barcodes => {
+                    if (barcodes.length > 0) {
+                        const kodeHasilScan = barcodes[0].rawValue; 
+                        parseDataBarcode(kodeHasilScan);
+                    }
+                })
+                .catch(err => console.error("Deteksi iOS error:", err));
+        } else {
+            barcodeDetector.detect(video)
+                .then(barcodes => {
+                    if (barcodes.length > 0) {
+                        const kodeHasilScan = barcodes[0].rawValue; 
+                        parseDataBarcode(kodeHasilScan);
+                    }
+                })
+                .catch(err => console.error("Deteksi error:", err));
+        }
     }
     setTimeout(() => { requestAnimationFrame(prosesFrameNative); }, 80); 
 }
