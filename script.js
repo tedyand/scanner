@@ -1,134 +1,113 @@
 const video = document.getElementById('webcam');
 let dbData = [];
-let barcodeDetector;
+let barcodeDetector = null;
+let pakaiPonyfill = false;      // true jika browser tidak punya BarcodeDetector bawaan (iOS)
+let sedangMendeteksi = false;   // mencegah deteksi menumpuk (wasm lebih lambat dari native)
+
+// URL resmi library (ZXing WebAssembly). Global yang dihasilkan: window.BarcodeDetectionAPI
+const URL_PONYFILL = "https://cdn.jsdelivr.net/npm/barcode-detector@3/dist/iife/ponyfill.min.js";
+const FORMAT_BARCODE = ['code_128', 'code_39', 'ean_13', 'code_93'];
+
+function muatScript(src) {
+    return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = resolve;
+        s.onerror = () => reject(new Error("Gagal memuat: " + src));
+        document.head.appendChild(s);
+    });
+}
+
+async function siapkanDetector() {
+    try {
+        if ('BarcodeDetector' in window) {
+            // Android/Chrome: pakai yang bawaan browser
+            barcodeDetector = new BarcodeDetector({ formats: FORMAT_BARCODE });
+            pakaiPonyfill = false;
+        } else {
+            // iOS Safari: tidak ada BarcodeDetector -> pakai ponyfill ZXing
+            await muatScript(URL_PONYFILL);
+            const Detektor = window.BarcodeDetectionAPI && window.BarcodeDetectionAPI.BarcodeDetector;
+            if (!Detektor) throw new Error("BarcodeDetectionAPI tidak ditemukan setelah script dimuat");
+            barcodeDetector = new Detektor({ formats: FORMAT_BARCODE });
+            pakaiPonyfill = true;
+        }
+    } catch (err) {
+        console.error("Gagal menyiapkan detector:", err);
+        alert("Mesin scan gagal dimuat. Pastikan internet aktif lalu muat ulang halaman.");
+    }
+}
+
+function mulaiLoopScan() {
+    requestAnimationFrame(prosesFrameNative);
+}
 
 function inisialisasiScanner() {
-    // Pastikan tag video memiliki atribut playsinline agar iOS tidak macet
     if (video) {
         video.setAttribute('playsinline', 'true');
         video.setAttribute('webkit-playsinline', 'true');
     }
 
-    // Mengaktifkan kamera dengan pengaturan autofokus tingkat lanjut
     const constraints = {
         video: {
             facingMode: "environment",
-            width: { ideal: 1280 }, // Menggunakan resolusi HD agar garis barcode lebih tajam
+            width: { ideal: 1280 },
             height: { ideal: 720 },
             advanced: [
-                { focusMode: "continuous" }, // Memaksa kamera terus mencari fokus otomatis
-                { focusDistance: 0.1 }       // Mode makro mendeteksi objek dekat
+                { focusMode: "continuous" },
+                { focusDistance: 0.1 }
             ]
         },
         audio: false
     };
 
-    navigator.mediaDevices.getUserMedia(constraints)
-    .then(function(stream) {
+    function pasangStream(stream) {
         video.srcObject = stream;
-        video.play().then(() => { requestAnimationFrame(prosesFrameNative); });
-        
-        // Coba terapkan autofokus ulang setelah track kamera aktif (opsional/tambahan aman)
-        const track = stream.getVideoTracks();
-        const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+        video.play().then(mulaiLoopScan);
+
+        // PERBAIKAN: getVideoTracks() mengembalikan array, ambil elemen pertama
+        const track = stream.getVideoTracks()[0];
+        const capabilities = (track && track.getCapabilities) ? track.getCapabilities() : {};
         if (capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
             track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(e => console.log(e));
         }
-    })
-    .catch(err => {
-        // Fallback jika resolusi HD atau advanced constraint ditolak oleh browser tertentu
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
-        .then(function(stream) {
-            video.srcObject = stream;
-            video.play().then(() => { requestAnimationFrame(prosesFrameNative); });
-        })
-        .catch(e => alert("Kamera Error: Pastikan menggunakan HTTPS dan beri izin akses."));
-    });
-
-    // Kode Detektor OS Pintar untuk kompatibilitas lintas perangkat
-    const isIphoneAtauIpad = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-                             (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
-    if (!isIphoneAtauIpad) {
-        buatObjekDetector();
-    } else if (!('BarcodeDetector' in window)) {
-        // PERBAIKAN URL: Menggunakan CDN library resmi agar mesin pendeteksi aktif di iPhone
-        const scriptMesin = document.createElement('script');
-        scriptMesin.src = "https://jsdelivr.net";
-        scriptMesin.defer = true;
-        
-        scriptMesin.onload = function() {
-            const scriptPelapis = document.createElement('script');
-            scriptPelapis.src = "https://jsdelivr.net";
-            scriptPelapis.defer = true;
-            
-            scriptPelapis.onload = function() {
-                // PERBAIKAN UTAMA: Menyelaraskan nama window object library (menggunakan huruf kecil di awal)
-                if (window.barcodeDetectorPolyfill) {
-                    window.BarcodeDetector = window.barcodeDetectorPolyfill.BarcodeDetectorPolyfill;
-                } else if (window.BarcodeDetectorPolyfill) {
-                    window.BarcodeDetector = window.BarcodeDetectorPolyfill.BarcodeDetector;
-                }
-                buatObjekDetector();
-            };
-            document.head.appendChild(scriptPelapis);
-        };
-        document.head.appendChild(scriptMesin);
-    } else {
-        buatObjekDetector();
     }
+
+    navigator.mediaDevices.getUserMedia(constraints)
+        .then(pasangStream)
+        .catch(() => {
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
+                .then(pasangStream)
+                .catch(() => alert("Kamera Error: Pastikan menggunakan HTTPS dan beri izin akses."));
+        });
+
+    siapkanDetector();
 }
 
-function buatObjekDetector() {
-    try {
-        if ('BarcodeDetector' in window) {
-            barcodeDetector = new BarcodeDetector({
-                formats: ['code_128', 'code_39', 'ean_13', 'code_93']
-            });
-        }
-    } catch (err) {
-        console.error("Gagal merakit konfigurasi detector:", err);
-    }
-}
-
-// Buat satu canvas tersembunyi di luar fungsi agar tidak membebani memori
+// Canvas tersembunyi, dipakai hanya saat ponyfill aktif
 const canvasMemori = document.createElement('canvas');
-const ctxMemori = canvasMemori.getContext('2d');
+const ctxMemori = canvasMemori.getContext('2d', { willReadFrequently: true });
 
 function prosesFrameNative() {
-    if (video.readyState === video.HAVE_ENOUGH_DATA && barcodeDetector) {
-        
-        // Cek kembali apakah perangkatnya iOS
-        const isIphoneAtauIpad = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-                                 (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (video.readyState === video.HAVE_ENOUGH_DATA && barcodeDetector && !sedangMendeteksi) {
+        let sumber = video;
 
-        if (isIphoneAtauIpad) {
-            // KHUSUS iOS: Gambar frame video ke canvas tersembunyi terlebih dahulu agar terbaca oleh polyfill
+        if (pakaiPonyfill) {
             canvasMemori.width = video.videoWidth;
             canvasMemori.height = video.videoHeight;
             ctxMemori.drawImage(video, 0, 0, canvasMemori.width, canvasMemori.height);
-            
-            // Lakukan deteksi lewat objek canvas, bukan elemen video langsung
-            barcodeDetector.detect(canvasMemori)
-                .then(barcodes => {
-                    if (barcodes.length > 0) {
-                        const kodeHasilScan = barcodes[0].rawValue; 
-                        parseDataBarcode(kodeHasilScan);
-                    }
-                })
-                .catch(err => console.error("Deteksi iOS error:", err));
-        } else {
-            barcodeDetector.detect(video)
-                .then(barcodes => {
-                    if (barcodes.length > 0) {
-                        const kodeHasilScan = barcodes[0].rawValue; 
-                        parseDataBarcode(kodeHasilScan);
-                    }
-                })
-                .catch(err => console.error("Deteksi error:", err));
+            sumber = canvasMemori;
         }
+
+        sedangMendeteksi = true;
+        barcodeDetector.detect(sumber)
+            .then(barcodes => {
+                barcodes.forEach(b => parseDataBarcode(b.rawValue));
+            })
+            .catch(err => console.error("Deteksi error:", err))
+            .finally(() => { sedangMendeteksi = false; });
     }
-    setTimeout(() => { requestAnimationFrame(prosesFrameNative); }, 80); 
+    setTimeout(() => { requestAnimationFrame(prosesFrameNative); }, 80);
 }
 
 function parseDataBarcode(text) {
@@ -153,7 +132,7 @@ function parseDataBarcode(text) {
     const matchImei = cleanText.match(/\b\d{15}\b/);
     if (matchImei) {
         const inputImei = document.getElementById('imei');
-        inputImei.value = matchImei;
+        inputImei.value = matchImei[0];
         vibrateDevice();
         validasiInput();
         beriEfekSukses(inputImei); // Picu shadow hijau di kotak IMEI
@@ -340,7 +319,7 @@ function unduhExcel() {
             return Math.max(maxKarakter * 8, 70); 
         });
 
-        let excelDataHtml = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://w3.org">
+        let excelDataHtml = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
         <head>
             <meta charset="UTF-8">
             <style>
