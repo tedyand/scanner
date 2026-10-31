@@ -52,7 +52,7 @@ function inisialisasiScanner() {
     if (!isIphoneAtauIpad) {
         buatObjekDetector();
     } else if (!('BarcodeDetector' in window)) {
-        // PERBAIKAN URL: Diarahkan ke file CDN library agar mesin pendeteksi aktif di iPhone
+        // PERBAIKAN URL: Menggunakan CDN library resmi agar mesin pendeteksi aktif di iPhone
         const scriptMesin = document.createElement('script');
         scriptMesin.src = "https://jsdelivr.net";
         scriptMesin.defer = true;
@@ -63,8 +63,10 @@ function inisialisasiScanner() {
             scriptPelapis.defer = true;
             
             scriptPelapis.onload = function() {
-                // Mendaftarkan polyfill ke window browser jika belum didukung secara native
-                if (window.BarcodeDetectorPolyfill) {
+                // PERBAIKAN UTAMA: Menyelaraskan nama window object library (menggunakan huruf kecil di awal)
+                if (window.barcodeDetectorPolyfill) {
+                    window.BarcodeDetector = window.barcodeDetectorPolyfill.BarcodeDetectorPolyfill;
+                } else if (window.BarcodeDetectorPolyfill) {
                     window.BarcodeDetector = window.BarcodeDetectorPolyfill.BarcodeDetector;
                 }
                 buatObjekDetector();
