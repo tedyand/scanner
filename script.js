@@ -294,86 +294,40 @@ function simpanData() {
     validasiInput(); 
 }
 
-function unduhExcel() {
+const URL_SHEETJS = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+
+async function unduhExcel() {
     if (dbData.length === 0) return alert("Data antrean masih kosong!");
-    
+
     const btn = document.getElementById('btnExcel');
     btn.innerText = "Memproses...";
     btn.disabled = true;
 
     try {
+        // Library dimuat sekali saja, saat tombol ditekan pertama kali
+        if (typeof XLSX === 'undefined') await muatScript(URL_SHEETJS);
+
         const headers = ["Waktu Input", "Asal Barang", "Tipe Barang", "Varian Barang", "Serial Number", "IMEI"];
-        
-        let lebarKolom = headers.map((head, i) => {
-            let maxKarakter = head.length;
-            dbData.forEach(item => {
-                let isiKarakter = 0;
-                if(i===0) isiKarakter = item.waktu.length;
-                if(i===1) isiKarakter = item.asal.length;
-                if(i===2) isiKarakter = item.tipe.length;
-                if(i===3) isiKarakter = item.varian.length;
-                if(i===4) isiKarakter = item.sn.length;
-                if(i===5) isiKarakter = item.imei.length;
-                if(isiKarakter > maxKarakter) maxKarakter = isiKarakter;
-            });
-            return Math.max(maxKarakter * 8, 70); 
-        });
+        const baris = dbData.map(item => [item.waktu, item.asal, item.tipe, item.varian, item.sn, item.imei]);
 
-        let excelDataHtml = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-        <head>
-            <meta charset="UTF-8">
-            <style>
-                table { border-collapse: collapse; }
-                th { background-color: #F3F4F6; font-family: 'Segoe UI', sans-serif; font-size: 11pt; font-weight: bold; border: 0.5pt solid #CCCCCC; padding: 6px; text-align: center; }
-                td { font-family: 'Segoe UI', sans-serif; font-size: 10pt; border: 0.5pt solid #CCCCCC; padding: 5px; vertical-align: middle; }
-                .text-format { mso-number-format:"\\@"; }
-            </style>
-        </head>
-        <body>
-            <table>
-                <colgroup>`;
-        
-        lebarKolom.forEach(lebar => {
-            excelDataHtml += `<col width="${lebar}" />`;
-        });
-        
-        excelDataHtml += `</colgroup>
-                <thead>
-                    <tr>`;
-        headers.forEach(h => { excelDataHtml += `<th>${h}</th>`; });
-        excelDataHtml += `</tr>
-                </thead>
-                <tbody>`;
+        // Semua nilai berupa teks, jadi IMEI/SN tidak berubah jadi angka ilmiah
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...baris]);
 
-        dbData.forEach(function(item) {
-            excelDataHtml += `<tr>
-                <td>${item.waktu}</td>
-                <td>${item.asal}</td>
-                <td>${item.tipe}</td>
-                <td>${item.varian}</td>
-                <td class="text-format">${item.sn}</td>
-                <td class="text-format">${item.imei}</td>
-            </tr>`;
-        });
+        // Lebar kolom otomatis mengikuti isi
+        ws['!cols'] = headers.map((h, i) => ({
+            wch: Math.max(h.length, ...baris.map(r => String(r[i]).length)) + 2
+        }));
 
-        excelDataHtml += `</tbody></table></body></html>`;
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Data Scan");
+        XLSX.writeFile(wb, "Data_Scan_iPhone.xlsx");
 
-        const blobBerkas = new Blob([excelDataHtml], { type: "application/vnd.ms-excel;charset=utf-8;" });
-        const linkUnduhan = document.createElement("a");
-        
-        linkUnduhan.href = URL.createObjectURL(blobBerkas);
-        linkUnduhan.setAttribute("download", "Data_Scan_iPhone.xls");
-        document.body.appendChild(linkUnduhan);
-        
-        linkUnduhan.click();
-        document.body.removeChild(linkUnduhan);
-        
     } catch (error) {
-        alert("Gagal memproses file spreadsheet: " + error);
+        alert("Gagal membuat file Excel: " + error.message + "\nPastikan internet aktif.");
+    } finally {
+        btn.innerText = "Unduh Excel";
+        btn.disabled = false;
     }
-
-    btn.innerText = "Unduh Excel";
-    btn.disabled = false;
 }
 
 validasiInput();
